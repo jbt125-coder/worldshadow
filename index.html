@@ -604,7 +604,6 @@ cursor:pointer; border-radius:2px; display:none;
   <h2>&#9632; HOW TO PLAY &#9632;</h2>
   <div class="howto-inner">
 
-```
 <div class="howto-section">
   <h3>OBJECTIVE</h3>
   <p>You are the supreme leader of a nation. Over 10-30 turns, build the most powerful empire through diplomacy, economics, military force, and disease management. Highest score wins.</p>
@@ -656,7 +655,6 @@ cursor:pointer; border-radius:2px; display:none;
 </div>
 
 <button class="btn-main" id="btn-back-howto">BACK TO MENU</button>
-```
 
   </div>
 </div>
@@ -806,6 +804,64 @@ cursor:pointer; border-radius:2px; display:none;
   <div id="popup-body">
     <div id="popup-stats"></div>
   </div>
+</div>
+
+<!-- TENSION WARNING -->
+
+<div id="tension-warning">&#9888; GLOBAL TENSION CRITICAL &#9888;</div>
+
+<!-- EVENT TICKER -->
+
+<div id="event-ticker"></div>
+
+<!-- WORLD WAR SCREEN -->
+
+<div id="worldwar">
+  <div id="worldwar-inner">
+    <div id="ww-title">WORLD WAR</div>
+    <div id="ww-sub">GLOBAL CONFLICT INITIATED</div>
+    <div id="ww-result"></div>
+    <div id="ww-rows"></div>
+    <button class="btn-main" id="btn-ww-continue" style="width:100%">CONTINUE TO FINAL SCORE</button>
+  </div>
+</div>
+
+<!-- RESEARCH MODE BAR -->
+
+<div id="research-bar">
+  <div id="research-title">&#9632; RESEARCH MODE &#9632;</div>
+  <button id="btn-exit-research">EXIT</button>
+</div>
+<div id="research-hint">TAP ANY COUNTRY TO VIEW ITS DOSSIER</div>
+
+<!-- FULL DOSSIER CARD -->
+
+<div id="dossier">
+  <div id="dossier-inner">
+    <div id="dossier-header">
+      <div id="dossier-flag"></div>
+      <div id="dossier-name-wrap">
+        <div id="dossier-name"></div>
+        <div id="dossier-gov"></div>
+      </div>
+      <button id="dossier-close">X</button>
+    </div>
+    <div id="dossier-body">
+      <div id="dossier-rank-badge"></div>
+      <div id="dossier-bloc-badge" class="dossier-bloc-badge"></div>
+      <div id="dossier-stats"></div>
+      <div id="dossier-reason"></div>
+    </div>
+  </div>
+</div>
+
+<!-- COG SEARCH -->
+
+<button id="cog-toggle">⚙ FIND</button>
+
+<div id="cog-panel">
+  <input id="cog-search-input" type="text" placeholder="TYPE COUNTRY NAME..." autocomplete="off" autocorrect="off" spellcheck="false">
+  <div id="cog-suggestions"></div>
 </div>
 
 <script>
@@ -2290,64 +2346,6 @@ fetch('https://raw.githubusercontent.com/datasets/geo-countries/master/data/coun
       .catch(function(){});
   });
 </script>
-
-<!-- TENSION WARNING -->
-
-<div id="tension-warning">&#9888; GLOBAL TENSION CRITICAL &#9888;</div>
-
-<!-- EVENT TICKER -->
-
-<div id="event-ticker" id="event-ticker"></div>
-
-<!-- WORLD WAR SCREEN -->
-
-<div id="worldwar">
-  <div id="worldwar-inner">
-    <div id="ww-title">WORLD WAR</div>
-    <div id="ww-sub">GLOBAL CONFLICT INITIATED</div>
-    <div id="ww-result" id="ww-result"></div>
-    <div id="ww-rows"></div>
-    <button class="btn-main" id="btn-ww-continue" style="width:100%">CONTINUE TO FINAL SCORE</button>
-  </div>
-</div>
-
-<!-- RESEARCH MODE BAR -->
-
-<div id="research-bar">
-  <div id="research-title">&#9632; RESEARCH MODE &#9632;</div>
-  <button id="btn-exit-research">EXIT</button>
-</div>
-<div id="research-hint">TAP ANY COUNTRY TO VIEW ITS DOSSIER</div>
-
-<!-- FULL DOSSIER CARD -->
-
-<div id="dossier">
-  <div id="dossier-inner">
-    <div id="dossier-header">
-      <div id="dossier-flag"></div>
-      <div id="dossier-name-wrap">
-        <div id="dossier-name"></div>
-        <div id="dossier-gov"></div>
-      </div>
-      <button id="dossier-close">X</button>
-    </div>
-    <div id="dossier-body">
-      <div id="dossier-rank-badge"></div>
-      <div id="dossier-bloc-badge" class="dossier-bloc-badge"></div>
-      <div id="dossier-stats"></div>
-      <div id="dossier-reason"></div>
-    </div>
-  </div>
-</div>
-
-<!-- COG SEARCH -->
-
-<button id="cog-toggle">⚙ FIND</button>
-
-<div id="cog-panel">
-  <input id="cog-search-input" type="text" placeholder="TYPE COUNTRY NAME..." autocomplete="off" autocorrect="off" spellcheck="false">
-  <div id="cog-suggestions"></div>
-</div>
 
 </body>
 </html>
