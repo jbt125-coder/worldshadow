@@ -1507,7 +1507,10 @@ function showDossier(name){
 
 document.getElementById('dossier-close').addEventListener('click',function(){
   document.getElementById('dossier').style.display='none';
-  if(GS.phase==='research') document.getElementById('research-hint').style.display='block';
+  if(GS.phase==='research'){
+    document.getElementById('research-hint').style.display='block';
+    autoSpin=true;
+  }
   searchHighlight=null;
 });
 
@@ -1678,9 +1681,9 @@ function animateGlobeTo(targetLon, targetLat, cb){
   // Only spin rotY to bring target longitude into view.
   // Always restore rotX to the known-good upright value.
   // rotY: the globe's "front" faces the +X axis in this projection.
-  // To center longitude L: rotY = PI/2 - L_radians  (empirically derived)
+  // To center longitude L: rotY = -PI/2 - L_radians
   var tLon = targetLon * Math.PI / 180;
-  var tRotY = Math.PI/2 - tLon;
+  var tRotY = -Math.PI/2 - tLon;
   // Normalise both current rotY and target into same 2PI window
   var sX = rotX, sY = rotY;
   var tRotX = UPRIGHT_ROT_X;
