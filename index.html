@@ -1,0 +1,2353 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>WORLD SHADOW</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  background:#050a0f; overflow:hidden;
+  font-family:'Courier New',monospace; color:#7fff00;
+  width:100vw; height:100vh;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+}
+canvas { cursor:grab; display:block; }
+canvas:active { cursor:grabbing; }
+#scanlines {
+  position:fixed; top:0; left:0; width:100%; height:100%;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.08) 2px,rgba(0,0,0,0.08) 4px);
+  pointer-events:none; z-index:20;
+}
+#corner-tl,#corner-tr,#corner-bl,#corner-br {
+  position:absolute; width:20px; height:20px; z-index:15; border-color:#4a9f2a; border-style:solid;
+}
+#corner-tl{top:6px;left:6px;border-width:2px 0 0 2px;}
+#corner-tr{top:6px;right:6px;border-width:2px 2px 0 0;}
+#corner-bl{bottom:6px;left:6px;border-width:0 0 2px 2px;}
+#corner-br{bottom:6px;right:6px;border-width:0 2px 2px 0;}
+
+/* ── SCREENS ── */
+.screen {
+position:fixed; top:0; left:0; width:100%; height:100%;
+background:#050a0f; z-index:100;
+display:flex; flex-direction:column; align-items:center; justify-content:center;
+transition:opacity 0.5s;
+}
+.screen.hidden { opacity:0; pointer-events:none; }
+.screen.gone { display:none; }
+
+/* TITLE SCREEN */
+#screen-title { background:#050a0f; }
+#screen-title h1 {
+font-size:clamp(28px,6vw,52px); letter-spacing:12px; color:#7fff00;
+text-shadow:0 0 30px #3fff00, 0 0 60px #1fff00;
+margin-bottom:8px; text-align:center;
+}
+#screen-title .sub {
+font-size:11px; letter-spacing:6px; color:#3a8f1a; margin-bottom:48px; text-align:center;
+}
+.btn-main {
+background:rgba(30,80,10,0.6); border:1px solid #3a8f1a;
+color:#7fff00; font-family:‘Courier New’,monospace;
+font-size:13px; letter-spacing:4px; padding:12px 32px;
+cursor:pointer; border-radius:2px; transition:all 0.2s;
+}
+.btn-main:hover { background:rgba(60,150,20,0.7); border-color:#7fff00; color:#ccff66; box-shadow:0 0 20px rgba(100,255,0,0.2); }
+
+/* BLOC PICKER */
+#screen-bloc h2 { font-size:13px; letter-spacing:6px; color:#4a9f2a; margin-bottom:30px; text-align:center; }
+.bloc-grid { display:flex; gap:16px; flex-wrap:wrap; justify-content:center; max-width:700px; }
+.bloc-card {
+width:190px; padding:20px 16px; border-radius:4px; cursor:pointer;
+border:2px solid transparent; transition:all 0.25s; text-align:center;
+background:rgba(4,12,4,0.8);
+}
+.bloc-card:hover { transform:translateY(-3px); }
+.bloc-card.red  { border-color:#aa2222; }
+.bloc-card.red:hover  { border-color:#ff4444; box-shadow:0 0 20px rgba(200,40,40,0.3); }
+.bloc-card.blue { border-color:#2255bb; }
+.bloc-card.blue:hover { border-color:#4488ff; box-shadow:0 0 20px rgba(40,100,220,0.3); }
+.bloc-card.green{ border-color:#2a7a1a; }
+.bloc-card.green:hover{ border-color:#55ff55; box-shadow:0 0 20px rgba(40,180,40,0.3); }
+.bloc-icon { font-size:32px; margin-bottom:10px; }
+.bloc-name { font-size:13px; letter-spacing:3px; font-weight:bold; margin-bottom:6px; }
+.bloc-name.red  { color:#ff6666; }
+.bloc-name.blue { color:#6699ff; }
+.bloc-name.green{ color:#66ff66; }
+.bloc-desc { font-size:9px; letter-spacing:1px; color:#6a8a5a; line-height:1.6; }
+
+/* COUNTRY PICKER */
+#screen-country h2 { font-size:12px; letter-spacing:5px; color:#4a9f2a; margin-bottom:6px; text-align:center; }
+#country-bloc-label { font-size:10px; letter-spacing:3px; color:#3a6010; margin-bottom:20px; text-align:center; }
+#country-list {
+display:flex; flex-wrap:wrap; gap:8px; justify-content:center;
+max-width:min(700px,95vw); max-height:60vh; overflow-y:auto;
+padding:4px 8px;
+}
+.country-btn {
+padding:7px 14px; border-radius:2px; cursor:pointer;
+font-family:‘Courier New’,monospace; font-size:10px; letter-spacing:2px;
+border:1px solid; transition:all 0.2s; background:rgba(4,12,4,0.8);
+}
+.country-btn.red  { border-color:#662222; color:#ff8888; }
+.country-btn.red:hover  { border-color:#ff4444; background:rgba(100,20,20,0.5); }
+.country-btn.blue { border-color:#224488; color:#88aaff; }
+.country-btn.blue:hover { border-color:#4488ff; background:rgba(20,50,120,0.5); }
+.country-btn.green{ border-color:#2a5a1a; color:#88ff88; }
+.country-btn.green:hover{ border-color:#44ff44; background:rgba(20,80,20,0.5); }
+#btn-back-bloc { margin-top:16px; }
+
+/* SETUP SCREEN */
+#screen-setup { background:#050a0f; }
+#setup-flag { font-size:48px; margin-bottom:8px; }
+#setup-country-name { font-size:clamp(16px,4vw,26px); letter-spacing:6px; color:#ccff66; text-shadow:0 0 12px #7fff00; margin-bottom:4px; text-align:center; }
+#setup-gov { font-size:9px; letter-spacing:3px; color:#4a9f2a; margin-bottom:20px; text-align:center; }
+#setup-stats {
+display:grid; grid-template-columns:1fr 1fr; gap:6px 20px;
+background:rgba(4,12,4,0.8); border:1px solid #2a5010;
+padding:14px 20px; border-radius:4px; margin-bottom:20px;
+max-width:400px; width:90vw;
+}
+.ss-row { display:flex; flex-direction:column; }
+.ss-label { font-size:8px; letter-spacing:2px; color:#3a7010; }
+.ss-val   { font-size:11px; letter-spacing:1px; color:#ccff88; }
+#setup-resources { display:flex; gap:8px; flex-wrap:wrap; justify-content:center; margin-bottom:20px; }
+.res-tag {
+padding:3px 10px; border-radius:2px; font-size:9px; letter-spacing:2px;
+background:rgba(20,50,10,0.7); border:1px solid #3a6010; color:#88cc44;
+}
+#setup-treasury { font-size:13px; letter-spacing:3px; color:#ffcc00; margin-bottom:24px; }
+#btn-begin { font-size:14px; letter-spacing:6px; padding:14px 40px; }
+
+/* ── HUD ── */
+#hud {
+position:fixed; top:0; left:0; right:0; height:44px;
+background:rgba(2,8,2,0.92); border-bottom:1px solid #1a4010;
+display:flex; align-items:center; padding:0 12px; gap:10px;
+z-index:60; display:none;
+}
+#hud-flag { font-size:16px; }
+#hud-country { font-size:10px; letter-spacing:3px; color:#ccff66; white-space:nowrap; }
+#hud-treasury { font-size:11px; letter-spacing:2px; color:#ffcc00; white-space:nowrap; }
+#hud-turn { font-size:10px; letter-spacing:2px; color:#4a9f2a; white-space:nowrap; }
+#hud-spacer { flex:1; }
+#tension-wrap { display:flex; align-items:center; gap:6px; }
+#tension-label { font-size:9px; letter-spacing:1px; color:#3a7010; }
+#tension-bar-bg { width:80px; height:8px; background:rgba(20,40,10,0.8); border:1px solid #2a5010; border-radius:1px; }
+#tension-bar-fill { height:100%; background:#3fff00; border-radius:1px; transition:width 0.5s, background 0.5s; }
+#tension-pct { font-size:9px; color:#7fff00; letter-spacing:1px; min-width:28px; }
+#hud-phase { font-size:9px; letter-spacing:2px; color:#4a6030; white-space:nowrap; }
+
+/* ── DICE ── */
+#dice-overlay {
+position:fixed; top:0; left:0; width:100%; height:100%;
+background:rgba(0,0,0,0.75); z-index:200;
+display:flex; flex-direction:column; align-items:center; justify-content:center;
+display:none;
+}
+#dice-box {
+background:rgba(4,14,4,0.97); border:1px solid #3a8f1a;
+border-radius:6px; padding:28px 36px; text-align:center;
+box-shadow:0 0 40px rgba(60,180,20,0.2);
+min-width:260px;
+}
+#dice-title { font-size:10px; letter-spacing:4px; color:#4a9f2a; margin-bottom:16px; }
+#dice-face {
+width:90px; height:90px; margin:0 auto 16px auto;
+background:rgba(10,30,10,0.95); border:2px solid #3a8f1a;
+border-radius:12px; display:grid; grid-template-columns:1fr 1fr 1fr;
+grid-template-rows:1fr 1fr 1fr; padding:10px; gap:4px;
+box-shadow:0 0 20px rgba(60,180,20,0.2), inset 0 0 10px rgba(0,0,0,0.5);
+transition:transform 0.1s;
+}
+#dice-face.rolling {
+animation:diceShake 0.55s ease-out;
+}
+@keyframes diceShake {
+0%   { transform:scale(1) rotate(0deg); }
+15%  { transform:scale(1.15) rotate(-8deg); }
+30%  { transform:scale(0.95) rotate(6deg); }
+45%  { transform:scale(1.1) rotate(-5deg); }
+60%  { transform:scale(0.97) rotate(4deg); }
+75%  { transform:scale(1.05) rotate(-2deg); }
+100% { transform:scale(1) rotate(0deg); }
+}
+.dot {
+width:100%; height:100%; border-radius:50%;
+background:#7fff00; box-shadow:0 0 6px rgba(100,255,0,0.6);
+}
+.dot.off { background:transparent; box-shadow:none; }
+#dice-result-label { font-size:14px; letter-spacing:4px; color:#ccff66; margin-bottom:6px; min-height:24px; }
+#dice-category { font-size:11px; letter-spacing:3px; margin-bottom:20px; min-height:18px; }
+#dice-category.cat-dip  { color:#44aaff; }
+#dice-category.cat-eco  { color:#ffcc00; }
+#dice-category.cat-mil  { color:#ff6644; }
+#dice-category.cat-wild { color:#cc44ff; }
+#btn-roll { width:100%; }
+#btn-roll:disabled { opacity:0.4; cursor:not-allowed; }
+
+/* ── ACTION CARDS ── */
+#cards-overlay {
+position:fixed; bottom:0; left:0; right:0;
+background:linear-gradient(transparent, rgba(2,8,2,0.97) 30%);
+padding:20px 12px 16px; z-index:180;
+display:none; flex-direction:column; align-items:center;
+}
+#cards-label { font-size:9px; letter-spacing:4px; color:#3a7010; margin-bottom:12px; }
+#cards-row {
+display:flex; gap:10px; justify-content:center; flex-wrap:wrap;
+max-width:min(700px,96vw);
+}
+.action-card {
+width:150px; min-height:140px; border-radius:4px; cursor:pointer;
+border:1px solid #2a5010; background:rgba(4,14,4,0.95);
+padding:12px 10px; display:flex; flex-direction:column;
+transition:all 0.2s; position:relative; overflow:hidden;
+}
+.action-card:hover { transform:translateY(-6px); border-color:#7fff00; box-shadow:0 0 20px rgba(100,255,0,0.15); }
+.action-card.selected { border-color:#ffcc00; box-shadow:0 0 20px rgba(255,200,0,0.25); }
+.card-cat-bar { height:3px; border-radius:1px; margin-bottom:8px; }
+.cat-dip .card-cat-bar  { background:#44aaff; }
+.cat-eco .card-cat-bar  { background:#ffcc00; }
+.cat-mil .card-cat-bar  { background:#ff6644; }
+.cat-wild .card-cat-bar { background:#cc44ff; }
+.card-icon { font-size:22px; margin-bottom:6px; }
+.card-name { font-size:10px; letter-spacing:2px; color:#ccff88; font-weight:bold; margin-bottom:6px; line-height:1.3; }
+.card-cost { font-size:9px; color:#ffcc00; letter-spacing:1px; margin-bottom:4px; }
+.card-odds { font-size:9px; letter-spacing:1px; }
+.card-odds.good { color:#44ff88; }
+.card-odds.ok   { color:#ffcc00; }
+.card-odds.risky{ color:#ff6644; }
+.card-desc { font-size:8px; color:#4a7030; letter-spacing:1px; line-height:1.4; margin-top:auto; }
+
+/* ── TARGET PROMPT ── */
+#target-prompt {
+position:fixed; top:50px; left:0; right:0; text-align:center;
+font-size:11px; letter-spacing:4px; color:#ffcc00;
+text-shadow:0 0 10px rgba(255,200,0,0.5);
+z-index:70; display:none; pointer-events:none;
+}
+
+/* ── RESULT TOAST ── */
+#result-toast {
+position:fixed; top:54px; left:50%; transform:translateX(-50%);
+background:rgba(4,14,4,0.97); border:1px solid #3a8f1a;
+border-radius:3px; padding:10px 20px; z-index:210;
+text-align:center; display:none; min-width:260px;
+box-shadow:0 0 20px rgba(60,180,20,0.2);
+}
+#result-toast .rt-action { font-size:11px; letter-spacing:3px; color:#ccff66; margin-bottom:4px; }
+#result-toast .rt-outcome{ font-size:13px; letter-spacing:2px; font-weight:bold; margin-bottom:4px; }
+#result-toast .rt-outcome.success { color:#44ff88; }
+#result-toast .rt-outcome.fail    { color:#ff4444; }
+#result-toast .rt-outcome.partial { color:#ffcc00; }
+#result-toast .rt-detail { font-size:9px; letter-spacing:1px; color:#4a9f2a; margin-bottom:10px; }
+#result-toast .rt-btn { width:100%; }
+
+/* ── AI MOVE TOAST ── */
+#ai-toast {
+position:fixed; bottom:60px; left:50%; transform:translateX(-50%);
+background:rgba(4,14,4,0.97); border:1px solid #2a5010;
+border-radius:3px; padding:8px 18px; z-index:210;
+text-align:center; display:none; min-width:220px;
+pointer-events:none;
+}
+#ai-toast .at-who  { font-size:9px; letter-spacing:3px; color:#4a9f2a; margin-bottom:2px; }
+#ai-toast .at-move { font-size:11px; letter-spacing:2px; color:#ccff88; }
+
+/* ── SCOREBOARD ── */
+#scoreboard {
+position:fixed; top:0; left:0; width:100%; height:100%;
+background:rgba(0,0,0,0.85); z-index:300;
+display:flex; align-items:center; justify-content:center;
+display:none;
+}
+#scoreboard-inner {
+background:rgba(4,12,4,0.98); border:1px solid #3a8f1a;
+border-radius:4px; padding:24px; min-width:300px; max-width:min(460px,94vw);
+box-shadow:0 0 40px rgba(60,180,20,0.2);
+}
+#scoreboard-title { font-size:11px; letter-spacing:5px; color:#4a9f2a; text-align:center; margin-bottom:18px; }
+.sb-row {
+display:flex; align-items:center; gap:10px;
+padding:8px 0; border-bottom:1px solid rgba(40,80,20,0.3);
+}
+.sb-row:last-child { border-bottom:none; }
+.sb-rank { font-size:18px; color:#4a9f2a; width:24px; text-align:center; flex-shrink:0; }
+.sb-flag { font-size:18px; flex-shrink:0; }
+.sb-name { font-size:11px; letter-spacing:2px; flex:1; }
+.sb-score { font-size:13px; letter-spacing:2px; color:#ffcc00; font-weight:bold; }
+.sb-breakdown { font-size:8px; color:#3a6010; letter-spacing:1px; }
+#btn-next-turn { width:100%; margin-top:16px; }
+
+/* ── GAME OVER ── */
+#gameover {
+position:fixed; top:0; left:0; width:100%; height:100%;
+background:rgba(0,0,0,0.9); z-index:400;
+display:flex; align-items:center; justify-content:center;
+display:none;
+}
+#gameover-inner {
+background:rgba(4,12,4,0.98); border:1px solid #7fff00;
+border-radius:4px; padding:28px; max-width:min(460px,94vw);
+box-shadow:0 0 60px rgba(100,255,0,0.2); text-align:center;
+}
+#go-title { font-size:24px; letter-spacing:8px; color:#7fff00; text-shadow:0 0 20px #3fff00; margin-bottom:6px; }
+#go-sub { font-size:10px; letter-spacing:3px; color:#4a9f2a; margin-bottom:20px; }
+#go-winner { font-size:14px; letter-spacing:4px; color:#ffcc00; margin-bottom:20px; }
+#go-scores { width:100%; margin-bottom:20px; }
+#btn-play-again { margin-right:10px; }
+
+/* ── LEGEND ── */
+#legend {
+position:fixed; bottom:36px; left:14px; z-index:15;
+font-size:10px; letter-spacing:1px; line-height:20px; display:none;
+}
+.leg { display:flex; align-items:center; gap:7px; color:#8ab87a; }
+.leg-dot { width:12px; height:12px; border-radius:2px; flex-shrink:0; }
+#info-bar {
+position:fixed; bottom:14px; left:0; right:0; text-align:center;
+font-size:10px; letter-spacing:2px; color:#2a5f0a; z-index:15; display:none;
+}
+
+/* ── COUNTRY INFO POPUP ── */
+#popup {
+position:fixed; z-index:50; background:rgba(4,12,4,0.97);
+border:1px solid #3a8f1a; border-radius:4px;
+padding:0; min-width:240px; max-width:300px;
+box-shadow:0 0 30px rgba(60,180,20,0.18);
+display:none; pointer-events:auto; max-height:75vh; overflow-y:auto;
+}
+#popup.visible { display:block; }
+#popup-header {
+background:rgba(30,80,10,0.7); border-bottom:1px solid #2a6010;
+padding:8px 12px; display:flex; justify-content:space-between; align-items:center;
+position:sticky; top:0;
+}
+#popup-flag { font-size:18px; }
+#popup-country { font-size:11px; font-weight:bold; letter-spacing:3px; color:#ccff66; flex:1; margin-left:8px; }
+#popup-close { color:#5a9f3a; font-size:14px; cursor:pointer; padding:2px 6px; background:none; border:1px solid #3a6010; border-radius:2px; font-family:‘Courier New’,monospace; }
+#popup-body { padding:10px 12px; }
+.stat-row { display:flex; justify-content:space-between; border-bottom:1px solid rgba(40,80,20,0.3); padding:4px 0; font-size:10px; gap:8px; }
+.stat-row:last-child { border-bottom:none; }
+.stat-label { color:#5a9f3a; letter-spacing:1px; flex-shrink:0; font-size:9px; }
+.stat-val   { color:#ccff88; text-align:right; letter-spacing:1px; font-size:9px; }
+
+/* ── DISEASE PULSE ── */
+@keyframes diseasePulse {
+0%   { transform:scale(1);   opacity:0.9; }
+50%  { transform:scale(1.6); opacity:0.4; }
+100% { transform:scale(2.2); opacity:0; }
+}
+.disease-ring {
+position:fixed; border-radius:50%; pointer-events:none; z-index:55;
+border:2px solid #ff6600;
+animation:diseasePulse 1.4s ease-out infinite;
+}
+
+/* ── TENSION WARNING ── */
+#tension-warning {
+position:fixed; top:50px; left:50%; transform:translateX(-50%);
+background:rgba(80,0,0,0.95); border:1px solid #ff3333;
+border-radius:3px; padding:8px 18px; z-index:220;
+text-align:center; display:none; pointer-events:none;
+font-size:11px; letter-spacing:3px; color:#ff6666;
+box-shadow:0 0 20px rgba(255,50,50,0.3);
+}
+
+/* ── WORLD WAR SCREEN ── */
+#worldwar {
+position:fixed; top:0; left:0; width:100%; height:100%;
+background:rgba(40,0,0,0.92); z-index:350;
+display:flex; align-items:center; justify-content:center;
+display:none;
+}
+#worldwar-inner {
+background:rgba(20,2,2,0.98); border:2px solid #ff3333;
+border-radius:4px; padding:24px; max-width:min(440px,94vw);
+text-align:center; box-shadow:0 0 60px rgba(255,50,50,0.3);
+}
+#ww-title { font-size:22px; letter-spacing:8px; color:#ff3333; text-shadow:0 0 20px #ff0000; margin-bottom:8px; }
+#ww-sub   { font-size:9px; letter-spacing:4px; color:#aa3333; margin-bottom:18px; }
+#ww-result{ font-size:13px; letter-spacing:3px; color:#ffaa66; margin-bottom:18px; line-height:1.8; }
+#ww-rows  { margin-bottom:16px; }
+.ww-row { display:flex; align-items:center; gap:8px; padding:5px 0; border-bottom:1px solid rgba(80,20,20,0.4); font-size:10px; }
+
+/* ── EVENT TICKER ── */
+#event-ticker {
+position:fixed; bottom:32px; left:0; right:0; text-align:center;
+font-size:10px; letter-spacing:3px; color:#4a9f2a; z-index:16;
+pointer-events:none; opacity:0; transition:opacity 0.4s;
+}
+#event-ticker.show { opacity:1; }
+
+/* ── PHASE 2 SCORE BREAKDOWN ── */
+.score-breakdown {
+display:grid; grid-template-columns:1fr 1fr; gap:4px 12px;
+background:rgba(10,25,8,0.6); border:1px solid #1a4010;
+padding:8px 12px; border-radius:3px; margin-top:8px; font-size:9px;
+}
+.score-cat { color:#3a7010; letter-spacing:1px; }
+.score-pts { color:#ffcc00; text-align:right; }
+
+/* ── TITLE SCREEN EXTRA BUTTONS ── */
+.btn-secondary {
+background:rgba(10,30,10,0.5); border:1px solid #2a5010;
+color:#4a9f2a; font-family:‘Courier New’,monospace;
+font-size:11px; letter-spacing:3px; padding:9px 24px;
+cursor:pointer; border-radius:2px; transition:all 0.2s;
+margin-top:10px; display:block; width:220px;
+}
+.btn-secondary:hover { border-color:#4a9f2a; color:#7fff00; background:rgba(20,60,10,0.6); }
+
+/* ── TURN SELECT SCREEN ── */
+#screen-turns { background:#050a0f; }
+#screen-turns h2 { font-size:12px; letter-spacing:5px; color:#4a9f2a; margin-bottom:28px; text-align:center; }
+.turn-options { display:flex; flex-direction:column; gap:12px; align-items:center; }
+.turn-card {
+width:260px; padding:14px 20px; border-radius:4px; cursor:pointer;
+border:1px solid #2a5010; background:rgba(4,12,4,0.85);
+display:flex; justify-content:space-between; align-items:center;
+transition:all 0.2s;
+}
+.turn-card:hover { border-color:#7fff00; background:rgba(20,60,10,0.6); transform:translateX(4px); }
+.turn-card-left { text-align:left; }
+.turn-count { font-size:22px; letter-spacing:4px; color:#ccff66; font-weight:bold; }
+.turn-label { font-size:9px; letter-spacing:3px; color:#3a7010; margin-top:2px; }
+.turn-time { font-size:11px; letter-spacing:2px; color:#4a9f2a; }
+
+/* ── HOW TO PLAY SCREEN ── */
+#screen-howto { background:#050a0f; overflow-y:auto; justify-content:flex-start; padding:20px 0 40px; }
+#screen-howto h2 { font-size:12px; letter-spacing:5px; color:#4a9f2a; margin-bottom:20px; text-align:center; padding-top:10px; }
+.howto-inner { max-width:min(520px,92vw); margin:0 auto; padding:0 12px; }
+.howto-section { margin-bottom:20px; border-left:2px solid #2a5010; padding-left:14px; }
+.howto-section h3 { font-size:10px; letter-spacing:3px; color:#ccff66; margin-bottom:8px; }
+.howto-section p  { font-size:10px; color:#6a8a5a; letter-spacing:1px; line-height:1.8; margin-bottom:6px; }
+.howto-tip { display:flex; gap:10px; align-items:flex-start; margin-bottom:8px; }
+.howto-icon { font-size:16px; flex-shrink:0; margin-top:1px; }
+.howto-text { font-size:10px; color:#6a8a5a; letter-spacing:1px; line-height:1.7; }
+.howto-tag {
+display:inline-block; padding:2px 8px; border-radius:2px; font-size:9px;
+letter-spacing:2px; margin:2px 3px 2px 0;
+}
+.tag-dip  { background:rgba(30,80,180,0.3); color:#88aaff; border:1px solid #2244aa; }
+.tag-eco  { background:rgba(160,120,0,0.3); color:#ffcc44; border:1px solid #aa8800; }
+.tag-mil  { background:rgba(150,40,20,0.3); color:#ff8866; border:1px solid #aa2200; }
+.tag-wild { background:rgba(100,20,150,0.3); color:#cc88ff; border:1px solid #6600aa; }
+#btn-back-howto { margin:20px auto 0; display:block; }
+
+/* ── RESEARCH MODE ── */
+#research-bar {
+position:fixed; top:0; left:0; right:0; height:44px;
+background:rgba(2,8,2,0.95); border-bottom:1px solid #1a4010;
+display:none; align-items:center; padding:0 14px; gap:12px; z-index:60;
+}
+#research-title { font-size:11px; letter-spacing:4px; color:#4a9f2a; flex:1; }
+#btn-exit-research {
+color:#4a9f2a; font-size:10px; letter-spacing:2px; cursor:pointer;
+padding:4px 12px; background:none; border:1px solid #2a5010;
+border-radius:2px; font-family:‘Courier New’,monospace;
+}
+#btn-exit-research:hover { color:#ccff66; border-color:#4a9f2a; }
+#research-hint {
+position:fixed; top:50px; left:0; right:0; text-align:center;
+font-size:10px; letter-spacing:3px; color:#2a5f0a; z-index:16;
+pointer-events:none; display:none;
+}
+
+/* ── DOSSIER CARD ── */
+#dossier {
+position:fixed; top:0; left:0; width:100%; height:100%;
+background:rgba(0,0,0,0.88); z-index:200;
+display:none; align-items:center; justify-content:center;
+}
+#dossier-inner {
+background:rgba(3,10,3,0.98); border:1px solid #3a8f1a;
+border-radius:4px; max-width:min(480px,95vw);
+max-height:88vh; overflow-y:auto; width:100%;
+box-shadow:0 0 40px rgba(60,180,20,0.15);
+}
+#dossier-header {
+position:sticky; top:0; background:rgba(10,28,10,0.98);
+border-bottom:1px solid #2a5010; padding:14px 16px 10px;
+display:flex; align-items:center; gap:12px; z-index:5;
+}
+#dossier-flag { font-size:28px; flex-shrink:0; }
+#dossier-name-wrap { flex:1; }
+#dossier-name { font-size:14px; letter-spacing:4px; color:#ccff66;
+text-shadow:0 0 10px rgba(100,255,0,0.3); font-weight:bold; }
+#dossier-gov  { font-size:9px; letter-spacing:2px; color:#4a9f2a; margin-top:3px; }
+#dossier-close {
+color:#4a9f2a; font-size:16px; cursor:pointer; padding:4px 8px;
+background:none; border:1px solid #2a5010; border-radius:2px;
+font-family:‘Courier New’,monospace; flex-shrink:0;
+}
+#dossier-close:hover { color:#ccff66; border-color:#7fff00; }
+#dossier-body { padding:14px 16px; }
+.dossier-bloc-badge {
+display:inline-block; padding:3px 12px; border-radius:2px;
+font-size:9px; letter-spacing:3px; margin-bottom:12px; font-weight:bold;
+}
+.dossier-section-title {
+font-size:9px; letter-spacing:3px; color:#2a6010; margin:14px 0 8px;
+border-bottom:1px solid rgba(40,80,20,0.3); padding-bottom:4px;
+}
+.dossier-row {
+display:flex; justify-content:space-between; align-items:flex-start;
+padding:5px 0; border-bottom:1px solid rgba(30,60,15,0.25);
+gap:10px; font-size:11px;
+}
+.dossier-row:last-child { border-bottom:none; }
+.dossier-label { color:#3a7010; letter-spacing:1px; font-size:10px; flex-shrink:0; }
+.dossier-val   { color:#aaddaa; text-align:right; letter-spacing:1px; font-size:10px; }
+.dossier-resources { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+.dossier-res-tag {
+padding:3px 10px; border-radius:2px; font-size:9px; letter-spacing:2px;
+background:rgba(20,50,10,0.7); border:1px solid #3a6010; color:#88cc44;
+}
+#dossier-reason {
+margin-top:12px; padding:10px 12px; background:rgba(15,35,8,0.5);
+border-left:3px solid #2a6010; font-size:10px; color:#6a8a5a;
+letter-spacing:1px; line-height:1.7;
+}
+#dossier-rank-badge {
+font-size:10px; letter-spacing:2px; color:#ffcc44; margin-bottom:10px;
+}
+
+/* ── COG SEARCH PANEL ── */
+#cog-panel {
+position:fixed; bottom:62px; right:14px; z-index:30;
+background:rgba(2,8,2,0.97); border:1px solid #2a5010;
+font-family:‘Courier New’,monospace; font-size:11px;
+color:#7fff00; padding:10px 12px; border-radius:3px;
+display:none; min-width:220px;
+}
+#cog-panel.open { display:block; }
+#cog-search-input {
+width:100%; background:rgba(10,30,10,0.8); border:1px solid #2a5010;
+color:#7fff00; font-family:‘Courier New’,monospace; font-size:11px;
+padding:6px 8px; border-radius:2px; outline:none; letter-spacing:1px;
+margin-bottom:6px;
+}
+#cog-search-input:focus { border-color:#4a9f2a; }
+#cog-suggestions {
+max-height:140px; overflow-y:auto;
+}
+.cog-suggestion {
+padding:5px 6px; cursor:pointer; font-size:10px; letter-spacing:1px;
+color:#4a9f2a; border-radius:2px;
+}
+.cog-suggestion:hover { background:rgba(30,80,10,0.4); color:#ccff66; }
+#cog-toggle {
+position:fixed; bottom:36px; right:14px; z-index:30;
+background:rgba(4,12,4,0.85); border:1px solid #3a6010;
+color:#4a9f2a; font-family:‘Courier New’,monospace;
+font-size:11px; letter-spacing:2px; padding:5px 10px;
+cursor:pointer; border-radius:2px; display:none;
+}
+#cog-toggle:hover { color:#ccff66; border-color:#7fff00; }
+
+</style>
+</head>
+<body>
+<div id="scanlines"></div>
+<div id="corner-tl"></div><div id="corner-tr"></div>
+<div id="corner-bl"></div><div id="corner-br"></div>
+
+<!-- TITLE SCREEN -->
+
+<div class="screen" id="screen-title" style="display:flex">
+  <div style="text-align:center;display:flex;flex-direction:column;align-items:center;">
+    <div style="font-size:11px;letter-spacing:8px;color:#2a5f0a;margin-bottom:16px;">&#9632; CLASSIFIED &#9632;</div>
+    <h1>WORLD SHADOW</h1>
+    <div class="sub">GLOBAL DOMINANCE SIMULATOR</div>
+    <button class="btn-main" id="btn-start" style="margin-bottom:6px;">INITIATE PROTOCOL</button>
+    <button class="btn-secondary" id="btn-research-mode">&#9654; DO RESEARCH</button>
+    <button class="btn-secondary" id="btn-howto">&#9432; HOW TO PLAY</button>
+  </div>
+</div>
+
+<!-- TURN SELECT SCREEN -->
+
+<div class="screen" id="screen-turns" style="display:none">
+  <h2>&#9632; SELECT GAME LENGTH &#9632;</h2>
+  <div class="turn-options">
+    <div class="turn-card" data-turns="10">
+      <div class="turn-card-left">
+        <div class="turn-count">10</div>
+        <div class="turn-label">TURNS</div>
+      </div>
+      <div class="turn-time">~5 MIN &nbsp; QUICK</div>
+    </div>
+    <div class="turn-card" data-turns="20">
+      <div class="turn-card-left">
+        <div class="turn-count">20</div>
+        <div class="turn-label">TURNS</div>
+      </div>
+      <div class="turn-time">~10 MIN &nbsp; STANDARD</div>
+    </div>
+    <div class="turn-card" data-turns="30">
+      <div class="turn-card-left">
+        <div class="turn-count">30</div>
+        <div class="turn-label">TURNS</div>
+      </div>
+      <div class="turn-time">~15 MIN &nbsp; CAMPAIGN</div>
+    </div>
+  </div>
+</div>
+
+<!-- HOW TO PLAY SCREEN -->
+
+<div class="screen" id="screen-howto" style="display:none">
+  <h2>&#9632; HOW TO PLAY &#9632;</h2>
+  <div class="howto-inner">
+
+```
+<div class="howto-section">
+  <h3>OBJECTIVE</h3>
+  <p>You are the supreme leader of a nation. Over 10-30 turns, build the most powerful empire through diplomacy, economics, military force, and disease management. Highest score wins.</p>
+</div>
+
+<div class="howto-section">
+  <h3>TURN STRUCTURE</h3>
+  <div class="howto-tip"><div class="howto-icon">1&#xFE0F;&#x20E3;</div><div class="howto-text">Roll the dice — result determines your action category for this turn.</div></div>
+  <div class="howto-tip"><div class="howto-icon">2&#xFE0F;&#x20E3;</div><div class="howto-text">Three action cards flip up. Each shows cost, and your odds of success.</div></div>
+  <div class="howto-tip"><div class="howto-icon">3&#xFE0F;&#x20E3;</div><div class="howto-text">Pick a card, then tap a target country on the globe.</div></div>
+  <div class="howto-tip"><div class="howto-icon">4&#xFE0F;&#x20E3;</div><div class="howto-text">Roll again for execution. Higher roll = better outcome.</div></div>
+  <div class="howto-tip"><div class="howto-icon">5&#xFE0F;&#x20E3;</div><div class="howto-text">Both AIs take their turns. Watch their arrows on the globe.</div></div>
+</div>
+
+<div class="howto-section">
+  <h3>ACTION CATEGORIES</h3>
+  <p><span class="howto-tag tag-dip">DIPLOMATIC</span> Build alliances, send envoys, insert spies. Cheapest path to allies.</p>
+  <p><span class="howto-tag tag-eco">ECONOMIC</span> Trade deals, foreign aid, sanctions. Builds your treasury fastest.</p>
+  <p><span class="howto-tag tag-mil">MILITARY</span> Deploy troops, covert ops, arms deals. Raises global tension.</p>
+  <p><span class="howto-tag tag-wild">WILD CARD</span> Roll a 6 and pick any action from any category.</p>
+</div>
+
+<div class="howto-section">
+  <h3>SCORING (10 TURNS)</h3>
+  <div class="howto-tip"><div class="howto-icon">&#x1F4B0;</div><div class="howto-text"><strong style="color:#ccff66">MONEY 40%</strong> — Treasury at game end. Income scales with GDP tier and ally count.</div></div>
+  <div class="howto-tip"><div class="howto-icon">&#x1F91D;</div><div class="howto-text"><strong style="color:#ccff66">ALLIES 30%</strong> — Every allied country adds significant points. Ally early.</div></div>
+  <div class="howto-tip"><div class="howto-icon">&#x1F9EC;</div><div class="howto-text"><strong style="color:#ccff66">DISEASE 15%</strong> — Outbreaks fire randomly. Containing them earns points and lowers tension.</div></div>
+  <div class="howto-tip"><div class="howto-icon">&#x1F575;</div><div class="howto-text"><strong style="color:#ccff66">OPS 10%</strong> — Successful spy and covert operations earn prestige points.</div></div>
+  <div class="howto-tip"><div class="howto-icon">&#x1F30D;</div><div class="howto-text"><strong style="color:#ccff66">STABILITY 5%</strong> — Bonus for keeping global tension low at game end.</div></div>
+</div>
+
+<div class="howto-section">
+  <h3>GLOBAL TENSION</h3>
+  <p>Military actions raise tension. Diplomacy lowers it. If tension hits 100%, World War erupts and military strength determines the winner — bypassing economic scoring.</p>
+</div>
+
+<div class="howto-section">
+  <h3>THE AI OPPONENTS</h3>
+  <p><strong style="color:#ff6666">IRON FIST</strong> plays the authoritarian bloc. Prefers military actions, spikes tension fast. Watch for their red arrows.</p>
+  <p><strong style="color:#66ff66">THE OPPORTUNIST</strong> plays the neutral bloc. Copies whoever is currently winning. Dangerous late game.</p>
+</div>
+
+<div class="howto-section">
+  <h3>PRO TIPS</h3>
+  <div class="howto-tip"><div class="howto-icon">&#x26A1;</div><div class="howto-text">Foreign Aid is cheap and has 85% success rate — great for building allies fast early.</div></div>
+  <div class="howto-tip"><div class="howto-icon">&#x26A1;</div><div class="howto-text">High GDP tier countries (US, China, Japan, Norway) earn far more income per turn.</div></div>
+  <div class="howto-tip"><div class="howto-icon">&#x26A1;</div><div class="howto-text">If you're losing on points late game, spike tension to 100% — a World War win gives a +100B treasury bonus.</div></div>
+  <div class="howto-tip"><div class="howto-icon">&#x26A1;</div><div class="howto-text">Tap any country during the game to see its full intel and current alliance status.</div></div>
+</div>
+
+<button class="btn-main" id="btn-back-howto">BACK TO MENU</button>
+```
+
+  </div>
+</div>
+
+<!-- BLOC PICKER -->
+
+<div class="screen" id="screen-bloc" style="display:none">
+  <h2>&#9632; SELECT YOUR BLOC &#9632;</h2>
+  <div class="bloc-grid">
+    <div class="bloc-card red" data-bloc="red">
+      <div class="bloc-icon">&#9760;</div>
+      <div class="bloc-name red">IRON BLOC</div>
+      <div class="bloc-desc">Authoritarian states. High military strength. Aggressive expansion. Low diplomatic trust but loyal allies.</div>
+    </div>
+    <div class="bloc-card blue" data-bloc="blue">
+      <div class="bloc-icon">&#9670;</div>
+      <div class="bloc-name blue">FREE WORLD</div>
+      <div class="bloc-desc">Democratic nations. Strong economies. High diplomatic power. Alliances come easier but cost more to maintain.</div>
+    </div>
+    <div class="bloc-card green" data-bloc="green">
+      <div class="bloc-icon">&#9650;</div>
+      <div class="bloc-name green">SHADOW BLOC</div>
+      <div class="bloc-desc">Non-aligned states. Unpredictable. Can deal with anyone. High covert ops bonus. Swing vote of the world.</div>
+    </div>
+  </div>
+</div>
+
+<!-- COUNTRY PICKER -->
+
+<div class="screen" id="screen-country" style="display:none">
+  <h2>&#9632; SELECT YOUR COUNTRY &#9632;</h2>
+  <div id="country-bloc-label"></div>
+  <div id="country-list"></div>
+  <button class="btn-main" id="btn-back-bloc" style="margin-top:16px;font-size:10px;letter-spacing:3px;">BACK</button>
+</div>
+
+<!-- SETUP SCREEN -->
+
+<div class="screen" id="screen-setup" style="display:none">
+  <div id="setup-flag"></div>
+  <div id="setup-country-name"></div>
+  <div id="setup-gov"></div>
+  <div id="setup-stats"></div>
+  <div id="setup-resources"></div>
+  <div id="setup-treasury"></div>
+  <button class="btn-main" id="btn-begin">BEGIN OPERATION</button>
+</div>
+
+<!-- GLOBE CANVAS -->
+
+<canvas id="canvas"></canvas>
+
+<!-- LEGEND (shown during game) -->
+
+<div id="legend">
+  <div class="leg"><div class="leg-dot" style="background:rgba(60,120,220,0.85);border:1px solid #5588ff;"></div>FREE WORLD</div>
+  <div class="leg"><div class="leg-dot" style="background:rgba(200,40,40,0.85);border:1px solid #ff5555;"></div>IRON BLOC</div>
+  <div class="leg"><div class="leg-dot" style="background:rgba(30,110,30,0.75);border:1px solid #3a8f1a;"></div>SHADOW BLOC</div>
+</div>
+<div id="info-bar">CLICK COUNTRY TO VIEW INTEL</div>
+
+<!-- HUD -->
+
+<div id="hud">
+  <div id="hud-flag"></div>
+  <div id="hud-country"></div>
+  <div id="hud-treasury"></div>
+  <div id="hud-spacer"></div>
+  <div id="hud-turn"></div>
+  <div id="tension-wrap">
+    <div id="tension-label">TENSION</div>
+    <div id="tension-bar-bg"><div id="tension-bar-fill" style="width:20%"></div></div>
+    <div id="tension-pct">20%</div>
+  </div>
+  <div id="hud-phase"></div>
+</div>
+
+<!-- DICE OVERLAY -->
+
+<div id="dice-overlay">
+  <div id="dice-box">
+    <div id="dice-title">ROLL FOR ACTION CATEGORY</div>
+    <div id="dice-face"></div>
+    <div id="dice-result-label"></div>
+    <div id="dice-category"></div>
+    <button class="btn-main" id="btn-roll">ROLL DICE</button>
+  </div>
+</div>
+
+<!-- ACTION CARDS -->
+
+<div id="cards-overlay">
+  <div id="cards-label">SELECT AN ACTION</div>
+  <div id="cards-row"></div>
+</div>
+
+<!-- TARGET PROMPT -->
+
+<div id="target-prompt">&#9654; TAP A TARGET COUNTRY ON THE GLOBE</div>
+
+<!-- RESULT TOAST -->
+
+<div id="result-toast">
+  <div class="rt-action" id="rt-action"></div>
+  <div class="rt-outcome" id="rt-outcome"></div>
+  <div class="rt-detail" id="rt-detail"></div>
+  <button class="btn-main rt-btn" id="btn-result-ok">CONTINUE</button>
+</div>
+
+<!-- AI TOAST -->
+
+<div id="ai-toast">
+  <div class="at-who" id="at-who"></div>
+  <div class="at-move" id="at-move"></div>
+</div>
+
+<!-- SCOREBOARD -->
+
+<div id="scoreboard">
+  <div id="scoreboard-inner">
+    <div id="scoreboard-title">&#9632; END OF TURN REPORT &#9632;</div>
+    <div id="sb-rows"></div>
+    <button class="btn-main" id="btn-next-turn">NEXT TURN</button>
+  </div>
+</div>
+
+<!-- GAME OVER -->
+
+<div id="gameover">
+  <div id="gameover-inner">
+    <div id="go-title">GAME OVER</div>
+    <div id="go-sub">FINAL STANDINGS</div>
+    <div id="go-winner"></div>
+    <div id="go-scores"></div>
+    <button class="btn-main" id="btn-play-again">PLAY AGAIN</button>
+  </div>
+</div>
+
+<!-- COUNTRY POPUP -->
+
+<div id="popup">
+  <div id="popup-header">
+    <div id="popup-flag"></div>
+    <div id="popup-country"></div>
+    <button id="popup-close">X</button>
+  </div>
+  <div id="popup-body">
+    <div id="popup-stats"></div>
+  </div>
+</div>
+
+<script>
+// ===================================================
+//  COUNTRY DATA
+// ===================================================
+var COUNTRY_DATA = {
+  "China":{"rank":1,"color":"red","govType":"Single-Party Communist State","flag":"CN","population":"1.409B","capital":"Beijing","gdp":"$17.7T","military":"2,185,000","leader":"Xi Jinping","avgChildren":"1.09","birthRate":"7.5","deathRate":"7.4","resources":["MINERALS","TECH","MANPOWER"],"gdpTier":4},
+  "India":{"rank":2,"color":"blue","govType":"Federal Parliamentary Republic","flag":"IN","population":"1.428B","capital":"New Delhi","gdp":"$3.55T","military":"1,455,550","leader":"Narendra Modi","avgChildren":"2.0","birthRate":"17.4","deathRate":"7.3","resources":["TECH","MANPOWER","FOOD"],"gdpTier":3},
+  "United States of America":{"rank":3,"color":"blue","govType":"Federal Constitutional Republic","flag":"US","population":"335M","capital":"Washington D.C.","gdp":"$25.5T","military":"1,395,350","leader":"Donald Trump","avgChildren":"1.66","birthRate":"11.0","deathRate":"10.4","resources":["TECH","OIL","FOOD"],"gdpTier":5},
+  "Indonesia":{"rank":4,"color":"blue","govType":"Presidential Republic","flag":"ID","population":"278M","capital":"Jakarta","gdp":"$1.32T","military":"395,500","leader":"Prabowo Subianto","avgChildren":"2.18","birthRate":"15.6","deathRate":"6.6","resources":["OIL","MINERALS","FOOD"],"gdpTier":3},
+  "Pakistan":{"rank":5,"color":"green","govType":"Federal Parliamentary Republic","flag":"PK","population":"231M","capital":"Islamabad","gdp":"$376B","military":"654,000","leader":"Shehbaz Sharif","avgChildren":"3.4","birthRate":"26.3","deathRate":"6.5","resources":["MANPOWER","MINERALS"],"gdpTier":2},
+  "Brazil":{"rank":6,"color":"blue","govType":"Federal Presidential Republic","flag":"BR","population":"216M","capital":"Brasilia","gdp":"$2.08T","military":"334,500","leader":"Lula da Silva","avgChildren":"1.65","birthRate":"13.0","deathRate":"7.2","resources":["FOOD","MINERALS","OIL"],"gdpTier":3},
+  "Nigeria":{"rank":7,"color":"green","govType":"Federal Presidential Republic","flag":"NG","population":"222M","capital":"Abuja","gdp":"$477B","military":"223,000","leader":"Bola Tinubu","avgChildren":"5.14","birthRate":"36.9","deathRate":"11.7","resources":["OIL","MANPOWER"],"gdpTier":2},
+  "Bangladesh":{"rank":8,"color":"green","govType":"Parliamentary Republic","flag":"BD","population":"173M","capital":"Dhaka","gdp":"$460B","military":"160,000","leader":"Muhammad Yunus","avgChildren":"2.04","birthRate":"17.9","deathRate":"5.5","resources":["MANPOWER","FOOD"],"gdpTier":2},
+  "Russia":{"rank":9,"color":"red","govType":"Authoritarian Presidential Federation","flag":"RU","population":"144M","capital":"Moscow","gdp":"$2.24T","military":"1,320,000","leader":"Vladimir Putin","avgChildren":"1.45","birthRate":"9.0","deathRate":"14.3","resources":["OIL","MINERALS","TECH"],"gdpTier":3},
+  "Ethiopia":{"rank":10,"color":"red","govType":"Federal Republic (Authoritarian)","flag":"ET","population":"128M","capital":"Addis Ababa","gdp":"$156B","military":"138,000","leader":"Abiy Ahmed","avgChildren":"4.15","birthRate":"32.5","deathRate":"8.9","resources":["FOOD","MANPOWER"],"gdpTier":1},
+  "Mexico":{"rank":11,"color":"blue","govType":"Federal Presidential Republic","flag":"MX","population":"129M","capital":"Mexico City","gdp":"$1.32T","military":"277,150","leader":"Claudia Sheinbaum","avgChildren":"1.83","birthRate":"15.1","deathRate":"6.5","resources":["OIL","FOOD","MINERALS"],"gdpTier":3},
+  "Japan":{"rank":12,"color":"blue","govType":"Constitutional Parliamentary Monarchy","flag":"JP","population":"124M","capital":"Tokyo","gdp":"$4.23T","military":"247,150","leader":"Shigeru Ishiba","avgChildren":"1.20","birthRate":"6.5","deathRate":"12.8","resources":["TECH"],"gdpTier":4},
+  "Philippines":{"rank":13,"color":"blue","govType":"Presidential Republic","flag":"PH","population":"117M","capital":"Manila","gdp":"$437B","military":"145,000","leader":"Marcos Jr.","avgChildren":"2.77","birthRate":"20.7","deathRate":"6.3","resources":["FOOD","MANPOWER","MINERALS"],"gdpTier":2},
+  "Democratic Republic of the Congo":{"rank":14,"color":"red","govType":"Presidential Republic (Authoritarian)","flag":"CD","population":"102M","capital":"Kinshasa","gdp":"$68B","military":"134,250","leader":"Felix Tshisekedi","avgChildren":"6.0","birthRate":"40.7","deathRate":"14.5","resources":["MINERALS","MANPOWER"],"gdpTier":1},
+  "Egypt":{"rank":15,"color":"red","govType":"Presidential Republic (Authoritarian)","flag":"EG","population":"106M","capital":"Cairo","gdp":"$476B","military":"438,500","leader":"el-Sisi","avgChildren":"2.85","birthRate":"22.3","deathRate":"5.9","resources":["OIL","MANPOWER"],"gdpTier":2},
+  "Vietnam":{"rank":16,"color":"red","govType":"Single-Party Socialist Republic","flag":"VN","population":"98M","capital":"Hanoi","gdp":"$449B","military":"470,000","leader":"To Lam","avgChildren":"2.09","birthRate":"14.9","deathRate":"6.5","resources":["MINERALS","MANPOWER","FOOD"],"gdpTier":2},
+  "Iran":{"rank":17,"color":"red","govType":"Islamic Theocratic Republic","flag":"IR","population":"87M","capital":"Tehran","gdp":"$413B","military":"575,000","leader":"Pezeshkian","avgChildren":"1.71","birthRate":"14.5","deathRate":"5.3","resources":["OIL","MINERALS"],"gdpTier":2},
+  "Germany":{"rank":18,"color":"blue","govType":"Federal Parliamentary Republic","flag":"DE","population":"84M","capital":"Berlin","gdp":"$4.07T","military":"183,500","leader":"Friedrich Merz","avgChildren":"1.46","birthRate":"9.3","deathRate":"12.1","resources":["TECH","MINERALS"],"gdpTier":4},
+  "Turkey":{"rank":19,"color":"green","govType":"Presidential Republic (Hybrid)","flag":"TR","population":"85M","capital":"Ankara","gdp":"$1.15T","military":"355,200","leader":"Erdogan","avgChildren":"1.94","birthRate":"14.5","deathRate":"5.3","resources":["FOOD","MINERALS","MANPOWER"],"gdpTier":3},
+  "Thailand":{"rank":20,"color":"green","govType":"Constitutional Monarchy (Semi-Democratic)","flag":"TH","population":"71M","capital":"Bangkok","gdp":"$574B","military":"361,000","leader":"Paetongtarn Shinawatra","avgChildren":"1.33","birthRate":"9.6","deathRate":"8.2","resources":["FOOD","TECH"],"gdpTier":2},
+  "United Kingdom":{"rank":21,"color":"blue","govType":"Constitutional Parliamentary Monarchy","flag":"GB","population":"68.3M","capital":"London","gdp":"$3.07T","military":"148,350","leader":"Keir Starmer","avgChildren":"1.49","birthRate":"10.1","deathRate":"9.4","resources":["TECH","OIL"],"gdpTier":4},
+  "Tanzania":{"rank":22,"color":"green","govType":"Presidential Republic (Dominant Party)","flag":"TZ","population":"67.4M","capital":"Dodoma","gdp":"$79B","military":"27,000","leader":"Samia Hassan","avgChildren":"4.5","birthRate":"34.7","deathRate":"5.8","resources":["MINERALS","FOOD"],"gdpTier":1},
+  "South Africa":{"rank":23,"color":"blue","govType":"Parliamentary Republic","flag":"ZA","population":"60.4M","capital":"Pretoria","gdp":"$405B","military":"78,050","leader":"Cyril Ramaphosa","avgChildren":"2.33","birthRate":"19.2","deathRate":"9.3","resources":["MINERALS","FOOD"],"gdpTier":2},
+  "Myanmar":{"rank":24,"color":"red","govType":"Military Junta","flag":"MM","population":"54.4M","capital":"Naypyidaw","gdp":"$65B","military":"406,000","leader":"Min Aung Hlaing","avgChildren":"2.15","birthRate":"16.3","deathRate":"8.3","resources":["MINERALS","FOOD"],"gdpTier":1},
+  "Kenya":{"rank":25,"color":"green","govType":"Presidential Republic (Fragile)","flag":"KE","population":"54.0M","capital":"Nairobi","gdp":"$118B","military":"24,120","leader":"William Ruto","avgChildren":"3.38","birthRate":"27.3","deathRate":"5.2","resources":["FOOD","MANPOWER"],"gdpTier":1},
+  "Colombia":{"rank":26,"color":"blue","govType":"Presidential Republic","flag":"CO","population":"52.2M","capital":"Bogota","gdp":"$363B","military":"293,200","leader":"Gustavo Petro","avgChildren":"1.74","birthRate":"14.8","deathRate":"6.1","resources":["OIL","MINERALS","FOOD"],"gdpTier":2},
+  "Spain":{"rank":27,"color":"blue","govType":"Constitutional Parliamentary Monarchy","flag":"ES","population":"47.4M","capital":"Madrid","gdp":"$1.58T","military":"120,450","leader":"Pedro Sanchez","avgChildren":"1.19","birthRate":"7.1","deathRate":"10.2","resources":["FOOD","TECH"],"gdpTier":3},
+  "Uganda":{"rank":28,"color":"red","govType":"Presidential Republic (Authoritarian)","flag":"UG","population":"48.6M","capital":"Kampala","gdp":"$49.3B","military":"45,000","leader":"Museveni","avgChildren":"4.7","birthRate":"37.3","deathRate":"4.9","resources":["FOOD","MANPOWER","MINERALS"],"gdpTier":1},
+  "Argentina":{"rank":29,"color":"blue","govType":"Federal Presidential Republic","flag":"AR","population":"45.8M","capital":"Buenos Aires","gdp":"$632B","military":"74,000","leader":"Javier Milei","avgChildren":"2.2","birthRate":"15.0","deathRate":"7.9","resources":["FOOD","OIL","MINERALS"],"gdpTier":2},
+  "Algeria":{"rank":30,"color":"red","govType":"Presidential Republic (Military-backed)","flag":"DZ","population":"45.6M","capital":"Algiers","gdp":"$239B","military":"317,000","leader":"Tebboune","avgChildren":"2.9","birthRate":"21.7","deathRate":"4.2","resources":["OIL","MINERALS"],"gdpTier":2},
+  "Sudan":{"rank":31,"color":"red","govType":"Military Junta (Civil War)","flag":"SD","population":"46.8M","capital":"Khartoum","gdp":"$45B","military":"105,000","leader":"al-Burhan","avgChildren":"4.4","birthRate":"33.6","deathRate":"6.3","resources":["OIL","MINERALS"],"gdpTier":1},
+  "Iraq":{"rank":32,"color":"green","govType":"Federal Parliamentary Republic (Fragile)","flag":"IQ","population":"42.1M","capital":"Baghdad","gdp":"$268B","military":"196,000","leader":"Al-Sudani","avgChildren":"3.5","birthRate":"27.1","deathRate":"4.4","resources":["OIL","MANPOWER"],"gdpTier":2},
+  "Ukraine":{"rank":33,"color":"blue","govType":"Presidential Republic (Wartime)","flag":"UA","population":"43.5M","capital":"Kyiv","gdp":"$179B","military":"800,000","leader":"Zelensky","avgChildren":"1.22","birthRate":"7.1","deathRate":"15.9","resources":["FOOD","MINERALS","MANPOWER"],"gdpTier":1},
+  "Canada":{"rank":34,"color":"blue","govType":"Federal Parliamentary Constitutional Monarchy","flag":"CA","population":"38.2M","capital":"Ottawa","gdp":"$2.14T","military":"67,490","leader":"Mark Carney","avgChildren":"1.44","birthRate":"10.2","deathRate":"8.0","resources":["OIL","FOOD","MINERALS","TECH"],"gdpTier":4},
+  "Poland":{"rank":35,"color":"blue","govType":"Parliamentary Republic","flag":"PL","population":"38.0M","capital":"Warsaw","gdp":"$748B","military":"216,000","leader":"Donald Tusk","avgChildren":"1.29","birthRate":"8.9","deathRate":"12.4","resources":["MINERALS","FOOD","TECH"],"gdpTier":3},
+  "Morocco":{"rank":36,"color":"red","govType":"Constitutional Monarchy (Authoritarian)","flag":"MA","population":"37.5M","capital":"Rabat","gdp":"$142B","military":"196,000","leader":"King Mohammed VI","avgChildren":"2.35","birthRate":"17.3","deathRate":"5.6","resources":["MINERALS","FOOD"],"gdpTier":2},
+  "Mozambique":{"rank":37,"color":"green","govType":"Presidential Republic","flag":"MZ","population":"32.8M","capital":"Maputo","gdp":"$18B","military":"11,200","leader":"Daniel Chapo","avgChildren":"4.7","birthRate":"37.0","deathRate":"9.3","resources":["MINERALS","FOOD","OIL"],"gdpTier":1},
+  "Ghana":{"rank":38,"color":"blue","govType":"Presidential Republic","flag":"GH","population":"33.5M","capital":"Accra","gdp":"$77B","military":"15,500","leader":"John Mahama","avgChildren":"3.85","birthRate":"27.8","deathRate":"6.5","resources":["OIL","MINERALS","FOOD"],"gdpTier":1},
+  "Yemen":{"rank":39,"color":"red","govType":"Divided / Civil War","flag":"YE","population":"34.4M","capital":"Sana'a","gdp":"$21B","military":"fragmented","leader":"Presidential Council","avgChildren":"3.6","birthRate":"24.0","deathRate":"5.9","resources":["OIL"],"gdpTier":1},
+  "North Korea":{"rank":40,"color":"red","govType":"Single-Party Totalitarian State","flag":"KP","population":"26.1M","capital":"Pyongyang","gdp":"~$18B","military":"1,280,000","leader":"Kim Jong-un","avgChildren":"1.8","birthRate":"13.4","deathRate":"9.4","resources":["MINERALS","MANPOWER"],"gdpTier":1},
+  "Saudi Arabia":{"color":"red","govType":"Absolute Monarchy","resources":["OIL","MINERALS"],"gdpTier":4,"military":"233,500","flag":"SA"},
+  "Australia":{"color":"blue","govType":"Federal Parliamentary Constitutional Monarchy","resources":["MINERALS","FOOD","TECH"],"gdpTier":4,"military":"60,000","flag":"AU"},
+  "France":{"color":"blue","govType":"Semi-Presidential Republic","resources":["TECH","FOOD"],"gdpTier":4,"military":"205,000","flag":"FR"},
+  "Italy":{"color":"blue","govType":"Parliamentary Republic","resources":["TECH","FOOD"],"gdpTier":3,"military":"165,500","flag":"IT"},
+  "South Korea":{"color":"blue","govType":"Presidential Republic","resources":["TECH","MINERALS"],"gdpTier":4,"military":"555,000","flag":"KR"},
+  "Afghanistan":{"color":"red","govType":"Islamic Emirate","resources":["MINERALS"],"gdpTier":1,"military":"100,000","flag":"AF"},
+  "Venezuela":{"color":"red","govType":"Presidential Republic (Authoritarian)","resources":["OIL"],"gdpTier":1,"military":"123,000","flag":"VE"},
+  "Cuba":{"color":"red","govType":"Single-Party Socialist Republic","resources":["FOOD"],"gdpTier":1,"military":"49,000","flag":"CU"},
+  "Syria":{"color":"red","govType":"Republic in Transition","resources":["OIL"],"gdpTier":1,"military":"80,000","flag":"SY"},
+  "Libya":{"color":"red","govType":"Divided Transitional Government","resources":["OIL"],"gdpTier":1,"military":"fragmented","flag":"LY"},
+  "Belarus":{"color":"red","govType":"Presidential Republic (Authoritarian)","resources":["MINERALS"],"gdpTier":2,"military":"45,000","flag":"BY"},
+  "Serbia":{"color":"green","govType":"Parliamentary Republic (Backsliding)","resources":["MINERALS","FOOD"],"gdpTier":2,"military":"28,150","flag":"RS"},
+  "Malaysia":{"color":"green","govType":"Constitutional Monarchy","resources":["OIL","FOOD","TECH"],"gdpTier":3,"military":"113,000","flag":"MY"},
+  "Singapore":{"color":"green","govType":"Parliamentary Republic (Dominant Party)","resources":["TECH"],"gdpTier":4,"military":"72,500","flag":"SG"},
+  "Kazakhstan":{"color":"red","govType":"Presidential Republic (Authoritarian)","resources":["OIL","MINERALS"],"gdpTier":2,"military":"79,000","flag":"KZ"},
+  "Peru":{"color":"green","govType":"Presidential Republic (Fragile)","resources":["MINERALS","FOOD"],"gdpTier":2,"military":"95,000","flag":"PE"},
+  "Hungary":{"color":"green","govType":"Parliamentary Republic (Backsliding)","resources":["FOOD"],"gdpTier":2,"military":"22,700","flag":"HU"},
+  "Sweden":{"color":"blue","govType":"Constitutional Parliamentary Monarchy","resources":["TECH","MINERALS"],"gdpTier":4,"military":"24,400","flag":"SE"},
+  "Norway":{"color":"blue","govType":"Constitutional Parliamentary Monarchy","resources":["OIL","TECH","FOOD"],"gdpTier":5,"military":"23,250","flag":"NO"},
+  "Netherlands":{"color":"blue","govType":"Constitutional Parliamentary Monarchy","resources":["TECH","FOOD"],"gdpTier":4,"military":"35,400","flag":"NL"},
+  "Switzerland":{"color":"blue","govType":"Federal Council Republic","resources":["TECH"],"gdpTier":5,"military":"21,000","flag":"CH"},
+  "Israel":{"color":"blue","govType":"Parliamentary Republic","resources":["TECH"],"gdpTier":4,"military":"169,500","flag":"IL"},
+  "Jordan":{"color":"red","govType":"Constitutional Monarchy (Authoritarian)","resources":["MANPOWER"],"gdpTier":2,"military":"100,500","flag":"JO"},
+  "Lebanon":{"color":"green","govType":"Parliamentary Republic (Dysfunctional)","resources":["MANPOWER"],"gdpTier":1,"military":"60,000","flag":"LB"},
+  "Zimbabwe":{"color":"red","govType":"Presidential Republic (Authoritarian)","resources":["MINERALS","FOOD"],"gdpTier":1,"military":"29,000","flag":"ZW"},
+  "Zambia":{"color":"blue","govType":"Presidential Republic","resources":["MINERALS","FOOD"],"gdpTier":1,"military":"16,200","flag":"ZM"},
+  "Senegal":{"color":"blue","govType":"Presidential Republic","resources":["FOOD","OIL"],"gdpTier":1,"military":"18,900","flag":"SN"},
+  "Central African Republic":{"color":"red","govType":"Presidential Republic (Authoritarian)","resources":["MINERALS"],"gdpTier":1,"military":"7,000","flag":"CF"},
+  "Somalia":{"color":"red","govType":"Federal Republic (Conflict)","resources":["MANPOWER"],"gdpTier":1,"military":"20,000","flag":"SO"},
+  "Mali":{"color":"red","govType":"Military Junta","resources":["MINERALS","FOOD"],"gdpTier":1,"military":"21,000","flag":"ML"},
+  "Niger":{"color":"red","govType":"Military Junta","resources":["MINERALS"],"gdpTier":1,"military":"10,000","flag":"NE"},
+  "Chad":{"color":"red","govType":"Presidential Republic (Military)","resources":["OIL","MANPOWER"],"gdpTier":1,"military":"30,350","flag":"TD"},
+  "Cameroon":{"color":"red","govType":"Presidential Republic (Authoritarian)","resources":["OIL","FOOD"],"gdpTier":1,"military":"14,400","flag":"CM"},
+  "Ivory Coast":{"color":"green","govType":"Presidential Republic","resources":["FOOD","MINERALS"],"gdpTier":2,"military":"22,000","flag":"CI"},
+  "Angola":{"color":"red","govType":"Presidential Republic (Dominant Party)","resources":["OIL","MINERALS"],"gdpTier":2,"military":"107,000","flag":"AO"},
+  "Rwanda":{"color":"red","govType":"Presidential Republic (Authoritarian)","resources":["MINERALS","FOOD"],"gdpTier":1,"military":"33,000","flag":"RW"},
+  "Bolivia":{"color":"green","govType":"Presidential Republic","resources":["MINERALS","OIL","FOOD"],"gdpTier":1,"military":"46,100","flag":"BO"},
+  "Ecuador":{"color":"blue","govType":"Presidential Republic","resources":["OIL","FOOD"],"gdpTier":2,"military":"40,500","flag":"EC"},
+  "Chile":{"color":"blue","govType":"Presidential Republic","resources":["MINERALS","FOOD"],"gdpTier":3,"military":"80,000","flag":"CL"},
+  "Taiwan":{"color":"blue","govType":"Presidential Republic","resources":["TECH"],"gdpTier":4,"military":"170,000","flag":"TW"},
+  "Sri Lanka":{"color":"green","govType":"Presidential Republic","resources":["FOOD","MANPOWER"],"gdpTier":2,"military":"255,000","flag":"LK"},
+  "Nepal":{"color":"blue","govType":"Federal Parliamentary Republic","resources":["FOOD","MANPOWER"],"gdpTier":1,"military":"95,000","flag":"NP"},
+  "Cambodia":{"color":"red","govType":"Constitutional Monarchy (Authoritarian)","resources":["FOOD","MINERALS"],"gdpTier":1,"military":"124,300","flag":"KH"},
+  "Laos":{"color":"red","govType":"Single-Party Socialist Republic","resources":["MINERALS","FOOD"],"gdpTier":1,"military":"29,100","flag":"LA"}
+};
+
+var FLAG_ISO = {
+  CN:"cn",IN:"in",US:"us",ID:"id",PK:"pk",BR:"br",NG:"ng",BD:"bd",RU:"ru",ET:"et",
+  MX:"mx",JP:"jp",PH:"ph",CD:"cd",EG:"eg",VN:"vn",IR:"ir",DE:"de",TR:"tr",TH:"th",
+  GB:"gb",TZ:"tz",ZA:"za",MM:"mm",KE:"ke",CO:"co",ES:"es",UG:"ug",AR:"ar",DZ:"dz",
+  SD:"sd",IQ:"iq",UA:"ua",CA:"ca",PL:"pl",MA:"ma",MZ:"mz",GH:"gh",YE:"ye",KP:"kp",
+  SA:"sa",AU:"au",FR:"fr",IT:"it",KR:"kr",AF:"af",VE:"ve",CU:"cu",SY:"sy",LY:"ly",
+  BY:"by",RS:"rs",MY:"my",SG:"sg",KZ:"kz",PE:"pe",HU:"hu",SE:"se",NO:"no",NL:"nl",
+  CH:"ch",IL:"il",JO:"jo",LB:"lb",ZW:"zw",ZM:"zm",SN:"sn",CF:"cf",SO:"so",ML:"ml",
+  NE:"ne",TD:"td",CM:"cm",CI:"ci",AO:"ao",RW:"rw",BO:"bo",EC:"ec",CL:"cl",TW:"tw",
+  LK:"lk",NP:"np",KH:"kh",LA:"la"
+};
+
+function flagImg(code, size) {
+  size = size || 16;
+  var iso = FLAG_ISO[code];
+  if (!iso) return '';
+  return '<img src="https://flagcdn.com/'+Math.round(size*1.33)+'x'+size+'/'+iso+'.png" style="vertical-align:middle;height:'+size+'px;" onerror="this.style.display=\'none\'">';
+}
+
+function getInfo(name) {
+  if (COUNTRY_DATA[name]) return COUNTRY_DATA[name];
+  var keys = Object.keys(COUNTRY_DATA);
+  for (var i=0; i<keys.length; i++) {
+    if (name && (name.indexOf(keys[i])!==-1 || keys[i].indexOf(name)!==-1)) return COUNTRY_DATA[keys[i]];
+  }
+  return null;
+}
+
+// ===================================================
+//  GAME STATE
+// ===================================================
+var GS = {
+  phase: 'title',     // title|bloc|country|setup|game
+  playerBloc: null,
+  playerCountry: null,
+  playerInfo: null,
+  playerTreasury: 0,
+  playerAllies: [],
+  playerOps: 0,
+  playerContainments: 0,
+  turn: 0,
+  maxTurns: 10,
+  tension: 20,        // 0-100
+  currentCategory: null,
+  selectedCard: null,
+  targetingMode: false,
+  // AI state
+  ai: [
+    { name:'IRON FIST', bloc:'red', country:null, treasury:0, allies:[], personality:'aggressive', lastArrow:null, lastCat:null },
+    { name:'THE OPPORTUNIST', bloc:'green', country:null, treasury:0, allies:[], personality:'opportunist', lastArrow:null, lastCat:null }
+  ],
+  // Alliance map: countryName -> 'player'|'ai0'|'ai1'|null
+  allianceMap: {},
+  // Globe arrows: [{from, to, cat, owner, alpha}]
+  arrows: []
+};
+
+// Starting treasury by GDP tier
+var GDP_TREASURY = {1:80, 2:140, 3:220, 4:320, 5:450};
+var GDP_INCOME   = {1:15, 2:25, 3:40, 4:60, 5:90};
+
+// ===================================================
+//  ACTION CARD DEFINITIONS
+// ===================================================
+var ACTIONS = {
+  dip: [
+    { id:'envoy',    name:'SEND ENVOY',       icon:'&#x1F4E8;', cost:20,  baseOdds:0.70, cat:'dip', desc:'Send diplomatic mission to neutral country. Builds relationship.' },
+    { id:'ally',     name:'ALLY PROPOSAL',    icon:'&#x1F91D;', cost:40,  baseOdds:0.55, cat:'dip', desc:'Formally propose alliance. High reward, harder to achieve.' },
+    { id:'spy_out',  name:'SPY INSERTION',    icon:'&#x1F575;', cost:30,  baseOdds:0.65, cat:'dip', desc:'Plant covert agent. Earns intel and future action bonuses.' },
+    { id:'counter',  name:'COUNTER-INTEL',    icon:'&#x1F510;', cost:25,  baseOdds:0.60, cat:'dip', desc:'Expose an enemy agent. Weakens their influence.' }
+  ],
+  eco: [
+    { id:'invest',   name:'INFRASTRUCTURE',   icon:'&#x1F3D7;', cost:50,  baseOdds:0.75, cat:'eco', desc:'Invest in a country. Raises GDP and loyalty to you.' },
+    { id:'trade',    name:'TRADE DEAL',        icon:'&#x1F4B0;', cost:15,  baseOdds:0.80, cat:'eco', desc:'Establish trade route. Generates steady income each turn.' },
+    { id:'sanctions',name:'SANCTIONS',         icon:'&#x26D4;',  cost:10,  baseOdds:0.60, cat:'eco', desc:'Economic pressure on enemy. Cuts their income.' },
+    { id:'aid',      name:'FOREIGN AID',       icon:'&#x1F6F3;', cost:20,  baseOdds:0.85, cat:'eco', desc:'Send humanitarian aid. Cheap loyalty builder.' }
+  ],
+  mil: [
+    { id:'deploy',   name:'TROOP DEPLOY',      icon:'&#x2694;',  cost:60,  baseOdds:0.65, cat:'mil', desc:'Move troops to border. Intimidates neighbors.' },
+    { id:'arms',     name:'ARMS DEAL',         icon:'&#x1F52B;', cost:20,  baseOdds:0.70, cat:'mil', desc:'Sell weapons. Earns cash but raises tension.' },
+    { id:'defpact',  name:'DEFENSE PACT',      icon:'&#x1F6E1;', cost:35,  baseOdds:0.60, cat:'mil', desc:'Pledge military defense of ally. Strengthens bond.' },
+    { id:'covert',   name:'COVERT OP',         icon:'&#x1F5E1;', cost:45,  baseOdds:0.50, cat:'mil', desc:'Destabilize from within. High risk, high reward.' }
+  ]
+};
+
+function getActionsForCategory(cat, playerInfo) {
+  var pool = cat === 'wild'
+    ? ACTIONS.dip.concat(ACTIONS.eco).concat(ACTIONS.mil)
+    : ACTIONS[cat] || ACTIONS.dip;
+  // Pick 3 random
+  var shuffled = pool.slice().sort(function(){return Math.random()-0.5;});
+  return shuffled.slice(0,3);
+}
+
+function calcOdds(action, playerInfo, targetInfo) {
+  var base = action.baseOdds;
+  // Modify by GDP tier diff
+  var pTier = playerInfo ? (playerInfo.gdpTier||2) : 2;
+  var tTier = targetInfo ? (targetInfo.gdpTier||2) : 2;
+  if (action.cat==='eco') base += (pTier - tTier) * 0.05;
+  if (action.cat==='mil') base += ((playerInfo&&playerInfo.military?1:0) - (targetInfo&&targetInfo.military?0.5:0)) * 0.02;
+  // Bloc synergy
+  if (playerInfo && targetInfo) {
+    if (action.cat==='dip' && playerInfo.color===targetInfo.color) base += 0.10;
+    if (action.cat==='mil' && playerInfo.color!==targetInfo.color) base += 0.05;
+  }
+  return Math.max(0.15, Math.min(0.92, base));
+}
+
+function oddsLabel(odds) {
+  if (odds >= 0.75) return {text: Math.round(odds*100)+'% SUCCESS', cls:'good'};
+  if (odds >= 0.50) return {text: Math.round(odds*100)+'% SUCCESS', cls:'ok'};
+  return {text: Math.round(odds*100)+'% SUCCESS', cls:'risky'};
+}
+
+// ===================================================
+//  GLOBE ENGINE
+// ===================================================
+var canvas = document.getElementById('canvas');
+var ctx = canvas.getContext('2d');
+var W, H, R;
+function resize() {
+  W = window.innerWidth; H = window.innerHeight;
+  canvas.width = W; canvas.height = H;
+  R = Math.min(W,H) * 0.42;
+}
+resize();
+window.addEventListener('resize', resize);
+
+var rotX = -1.3647, rotY = 4.3446, scale = 1.0;
+var SPIN_SPEED = 0.003;
+var autoSpin = true, dragging = false;
+var lastMX = 0, lastMY = 0, didDrag = false;
+var hoveredCountry = null, selectedCountry = null;
+var geoData = null;
+
+function project(lon, lat) {
+  var lam=lon*Math.PI/180, phi=lat*Math.PI/180;
+  var x=Math.cos(phi)*Math.cos(lam), y=Math.cos(phi)*Math.sin(lam), z=Math.sin(phi);
+  var cY=Math.cos(rotY),sY=Math.sin(rotY);
+  var x1=x*cY-y*sY, y1=x*sY+y*cY, z1=z;
+  var cX=Math.cos(rotX),sX=Math.sin(rotX);
+  return {x:x1, y:y1*cX-z1*sX, z:y1*sX+z1*cX};
+}
+function pts(lon, lat) {
+  var p=project(lon,lat);
+  return {sx:W/2+p.x*R*scale, sy:H/2-p.y*R*scale, z:p.z, vis:p.z>-0.05};
+}
+
+// Country centroid lookup (approximate lon/lat for arrow origins)
+var CENTROIDS = {
+  "China":[104,35],"India":[78,22],"United States of America":[-98,38],"Indonesia":[118,-2],
+  "Pakistan":[70,30],"Brazil":[-53,-10],"Nigeria":[8,10],"Bangladesh":[90,24],
+  "Russia":[99,60],"Ethiopia":[40,9],"Mexico":[-102,24],"Japan":[138,36],
+  "Philippines":[122,13],"Democratic Republic of the Congo":[24,-3],"Egypt":[30,26],
+  "Vietnam":[108,16],"Iran":[54,32],"Germany":[10,51],"Turkey":[35,39],
+  "Thailand":[101,15],"United Kingdom":[-2,54],"Tanzania":[35,-6],"South Africa":[25,-29],
+  "Myanmar":[96,17],"Kenya":[38,1],"Colombia":[-74,4],"Spain":[-4,40],
+  "Uganda":[32,1],"Argentina":[-64,-34],"Algeria":[3,28],"Sudan":[30,15],
+  "Iraq":[44,33],"Ukraine":[32,49],"Canada":[-96,60],"Poland":[20,52],
+  "Morocco":[-7,32],"Mozambique":[35,-18],"Ghana":[-2,8],"Yemen":[48,16],
+  "North Korea":[127,40],"Saudi Arabia":[45,25],"Australia":[133,-27],
+  "France":[2,46],"Italy":[12,43],"South Korea":[128,36],"Vietnam":[108,16],
+  "Venezuela":[-66,8],"Cuba":[-79,22],"Syria":[38,35],"Libya":[17,27],
+  "Belarus":[28,54],"Malaysia":[110,3],"Singapore":[104,1],"Kazakhstan":[68,48],
+  "Serbia":[21,44],"Peru":[-76,-10],"Hungary":[19,47],"Sweden":[18,60],
+  "Norway":[15,65],"Netherlands":[5,52],"Switzerland":[8,47],"Israel":[35,32],
+  "Jordan":[37,31],"Lebanon":[36,34],"Zimbabwe":[30,-20],"Zambia":[28,-14],
+  "Senegal":[-14,14],"Central African Republic":[20,7],"Somalia":[46,6],
+  "Mali":[-2,18],"Niger":[8,17],"Chad":[18,15],"Cameroon":[12,6],
+  "Angola":[18,-12],"Rwanda":[30,-2],"Bolivia":[-65,-17],"Ecuador":[-78,-2],
+  "Chile":[-71,-30],"Taiwan":[121,24],"Sri Lanka":[81,8],"Nepal":[84,28],
+  "Cambodia":[105,12],"Laos":[103,18],"Afghanistan":[67,33],"Bangladesh":[90,24],
+  "Mozambique":[35,-18],"Ivory Coast":[-6,7]
+};
+
+function getCentroid(name) {
+  if (CENTROIDS[name]) return CENTROIDS[name];
+  var keys = Object.keys(CENTROIDS);
+  for (var i=0; i<keys.length; i++) {
+    if (name && (name.indexOf(keys[i])!==-1 || keys[i].indexOf(name)!==-1)) return CENTROIDS[keys[i]];
+  }
+  return [0,0];
+}
+
+function getCountryStyle(name, isHovered, isSelected) {
+  var info = getInfo(name);
+  var polCol = info ? info.color : 'green';
+  var ally = GS.allianceMap[name];
+
+  // Search highlight
+  if(name && searchHighlight && name===searchHighlight){
+    return {fill:'rgba(255,220,50,0.6)', stroke:'#ffee33', lw:2.2};
+  }
+
+  // Inner fill = alliance state
+  var fill, stroke, lw;
+  if (isSelected) { fill='rgba(255,220,50,0.55)'; stroke='#ffee33'; lw=2.0; return {fill:fill,stroke:stroke,lw:2.0}; }
+
+  // Base fill from political color (outer visual)  -  during game, tint inner by alliance
+  var innerAlpha = GS.phase==='game' ? 0.6 : 0;
+  if (ally==='player')  fill = 'rgba(80,180,255,0.5)';
+  else if (ally==='ai0') fill = 'rgba(220,60,60,0.5)';
+  else if (ally==='ai1') fill = 'rgba(60,180,60,0.5)';
+  else {
+    // No alliance - use political color dimly
+    if (polCol==='red')   fill='rgba(185,35,35,0.55)';
+    else if(polCol==='blue') fill='rgba(40,92,205,0.55)';
+    else fill='rgba(30,110,30,0.5)';
+  }
+
+  if (isHovered) {
+    fill = fill.replace(/[\d.]+\)$/, '0.75)');
+    lw=1.8;
+    if (polCol==='red')   stroke='#ff4444';
+    else if(polCol==='blue') stroke='#4488ff';
+    else stroke='#44ff44';
+  } else {
+    lw=0.7;
+    if (polCol==='red')   stroke='#aa2222';
+    else if(polCol==='blue') stroke='#2255bb';
+    else stroke='#2a7a1a';
+  }
+
+  // Alliance border glow override
+  if (GS.phase==='game') {
+    if (ally==='player')  { stroke='#44aaff'; lw=isHovered?2:1.2; }
+    else if(ally==='ai0') { stroke='#ff4444'; lw=isHovered?2:1.2; }
+    else if(ally==='ai1') { stroke='#44ff44'; lw=isHovered?2:1.2; }
+  }
+
+  return {fill,stroke,lw};
+}
+
+function drawGlobe() {
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle='#050a0f'; ctx.fillRect(0,0,W,H);
+  // Stars
+  ctx.fillStyle='rgba(100,180,80,0.1)';
+  for(var i=0;i<100;i++) ctx.fillRect((i*137.5)%W,(i*97.3)%H,1,1);
+
+  var cx=W/2, cy=H/2;
+  var bg=ctx.createRadialGradient(cx-R*.2*scale,cy-R*.2*scale,R*.05*scale,cx,cy,R*scale);
+  bg.addColorStop(0,'#0a1a0a'); bg.addColorStop(.4,'#071208'); bg.addColorStop(1,'#020503');
+  ctx.beginPath(); ctx.arc(cx,cy,R*scale,0,Math.PI*2); ctx.fillStyle=bg; ctx.fill();
+  ctx.strokeStyle='#1a4f0a'; ctx.lineWidth=1.5; ctx.stroke();
+
+  // Grid
+  ctx.strokeStyle='rgba(40,90,20,0.18)'; ctx.lineWidth=0.5;
+  for(var lt=-80;lt<=80;lt+=20){
+    ctx.beginPath(); var gs=false;
+    for(var lo=-180;lo<=180;lo+=3){var p=pts(lo,lt);if(p.vis){if(!gs){ctx.moveTo(p.sx,p.sy);gs=true;}else ctx.lineTo(p.sx,p.sy);}else gs=false;}
+    ctx.stroke();
+  }
+  for(var lo2=-180;lo2<180;lo2+=20){
+    ctx.beginPath(); var gs2=false;
+    for(var la=-90;la<=90;la+=3){var p=pts(lo2,la);if(p.vis){if(!gs2){ctx.moveTo(p.sx,p.sy);gs2=true;}else ctx.lineTo(p.sx,p.sy);}else gs2=false;}
+    ctx.stroke();
+  }
+
+  if (geoData && geoData.features) {
+    for(var f=0;f<geoData.features.length;f++){
+      var feat=geoData.features[f];
+      var nm=feat.properties.name||feat.properties.NAME||feat.properties.ADMIN||'';
+      drawFeature(feat,nm,nm===hoveredCountry,nm===selectedCountry);
+    }
+  }
+
+  // Draw arrows
+  drawArrows();
+
+  // Atmosphere
+  var atm=ctx.createRadialGradient(cx,cy,R*scale*.85,cx,cy,R*scale*1.18);
+  atm.addColorStop(0,'rgba(0,0,0,0)'); atm.addColorStop(.5,'rgba(30,120,10,0.05)'); atm.addColorStop(1,'rgba(30,120,10,0)');
+  ctx.beginPath(); ctx.arc(cx,cy,R*scale*1.18,0,Math.PI*2); ctx.fillStyle=atm; ctx.fill();
+  var sp=ctx.createRadialGradient(cx-R*.3*scale,cy-R*.3*scale,0,cx-R*.2*scale,cy-R*.2*scale,R*.5*scale);
+  sp.addColorStop(0,'rgba(180,255,120,0.06)'); sp.addColorStop(1,'rgba(180,255,120,0)');
+  ctx.beginPath(); ctx.arc(cx,cy,R*scale,0,Math.PI*2); ctx.fillStyle=sp; ctx.fill();
+}
+
+function drawFeature(feature, name, isH, isS) {
+  var geom=feature.geometry; if(!geom) return;
+  var polys=geom.type==='Polygon'?[geom.coordinates]:geom.type==='MultiPolygon'?geom.coordinates:null;
+  if(!polys) return;
+  var st=getCountryStyle(name,isH,isS);
+  ctx.save(); ctx.beginPath(); ctx.arc(W/2,H/2,R*scale,0,Math.PI*2); ctx.clip();
+  for(var pi=0;pi<polys.length;pi++){
+    var rings=polys[pi];
+    for(var ri=0;ri<rings.length;ri++){
+      var ring=rings[ri]; ctx.beginPath(); var inP=false,pV=false;
+      for(var vi=0;vi<ring.length;vi++){
+        var p=pts(ring[vi][0],ring[vi][1]);
+        if(p.vis){if(!inP||!pV){ctx.moveTo(p.sx,p.sy);inP=true;}else ctx.lineTo(p.sx,p.sy);pV=true;}else pV=false;
+      }
+      ctx.fillStyle=st.fill; ctx.fill();
+      ctx.strokeStyle=st.stroke; ctx.lineWidth=st.lw; ctx.stroke();
+    }
+  }
+  ctx.restore();
+}
+
+function drawArrows() {
+  for(var i=0;i<GS.arrows.length;i++){
+    var ar=GS.arrows[i];
+    var fc=getCentroid(ar.from), tc=getCentroid(ar.to);
+    var fp=pts(fc[0],fc[1]), tp=pts(tc[0],tc[1]);
+    if(!fp.vis && !tp.vis) continue;
+    var alpha=ar.alpha||1;
+    var col = ar.owner==='player'?'rgba(80,200,255,'+alpha+')':
+              ar.owner==='ai0'  ?'rgba(255,80,80,'+alpha+')':
+                                  'rgba(80,255,80,'+alpha+')';
+    ctx.save();
+    ctx.beginPath(); ctx.arc(W/2,H/2,R*scale,0,Math.PI*2); ctx.clip();
+    ctx.strokeStyle=col; ctx.lineWidth=2; ctx.setLineDash([4,3]);
+    ctx.beginPath(); ctx.moveTo(fp.sx,fp.sy); ctx.lineTo(tp.sx,tp.sy); ctx.stroke();
+    ctx.setLineDash([]);
+    // Arrowhead
+    var dx=tp.sx-fp.sx, dy=tp.sy-fp.sy, len=Math.sqrt(dx*dx+dy*dy)||1;
+    var ux=dx/len, uy=dy/len;
+    var ax=tp.sx-ux*12, ay=tp.sy-uy*12;
+    ctx.fillStyle=col;
+    ctx.beginPath();
+    ctx.moveTo(tp.sx,tp.sy);
+    ctx.lineTo(ax+uy*5,ay-ux*5);
+    ctx.lineTo(ax-uy*5,ay+ux*5);
+    ctx.closePath(); ctx.fill();
+    // Label
+    var mx=(fp.sx+tp.sx)/2, my=(fp.sy+tp.sy)/2;
+    ctx.fillStyle=col; ctx.font='8px Courier New'; ctx.textAlign='center';
+    ctx.fillText(ar.cat.toUpperCase(),mx,my-6);
+    ctx.restore();
+  }
+}
+
+// -- Hit test --
+function lonLatFromScreen(mx, my) {
+  var dx=(mx-W/2)/(R*scale), dy=-(my-H/2)/(R*scale), d2=dx*dx+dy*dy;
+  if(d2>1) return null;
+  var dz=Math.sqrt(1-d2);
+  var cX=Math.cos(rotX),sX=Math.sin(rotX);
+  var y2=dy*cX+dz*sX, z2=-dy*sX+dz*cX, x2=dx;
+  var cY=Math.cos(rotY),sY=Math.sin(rotY);
+  var x1=x2*cY+y2*sY, y1=-x2*sY+y2*cY;
+  return {lon:Math.atan2(y1,x1)*180/Math.PI, lat:Math.asin(Math.max(-1,Math.min(1,z2)))*180/Math.PI};
+}
+function pip(lon,lat,ring){
+  var inside=false;
+  for(var i=0,j=ring.length-1;i<ring.length;j=i++){
+    var xi=ring[i][0],yi=ring[i][1],xj=ring[j][0],yj=ring[j][1];
+    if(((yi>lat)!==(yj>lat))&&(lon<(xj-xi)*(lat-yi)/(yj-yi)+xi)) inside=!inside;
+  }
+  return inside;
+}
+function hitTest(lon,lat){
+  if(!geoData) return null;
+  for(var f=0;f<geoData.features.length;f++){
+    var feat=geoData.features[f], geom=feat.geometry; if(!geom) continue;
+    var polys=geom.type==='Polygon'?[geom.coordinates]:geom.type==='MultiPolygon'?geom.coordinates:null;
+    if(!polys) continue;
+    for(var pi=0;pi<polys.length;pi++)
+      if(polys[pi].length>0&&pip(lon,lat,polys[pi][0]))
+        return feat.properties.name||feat.properties.NAME||feat.properties.ADMIN||'UNKNOWN';
+  }
+  return null;
+}
+
+// -- Globe input --
+function onDown(mx,my){ dragging=true; autoSpin=false; didDrag=false; lastMX=mx; lastMY=my; }
+function onMove(mx,my){
+  if(dragging){
+    var dx=mx-lastMX, dy=my-lastMY;
+    if(Math.abs(dx)+Math.abs(dy)>3) didDrag=true;
+    rotY+=dx*0.008; rotX+=dy*0.008; rotX=Math.max(-Math.PI,Math.min(Math.PI,rotX));
+    lastMX=mx; lastMY=my;
+  } else if(GS.phase==='game') {
+    var ll=lonLatFromScreen(mx,my);
+    hoveredCountry = ll ? hitTest(ll.lon,ll.lat) : null;
+  }
+}
+function onUp(mx,my){
+  if(!didDrag){
+    var ll=lonLatFromScreen(mx,my);
+    if(ll){
+      var nm=hitTest(ll.lon,ll.lat);
+      if(nm){
+        if(GS.phase==='game'){
+          if(GS.targetingMode){ handleTargetPick(nm); }
+          else { showCountryPopup(nm); }
+        } else if(GS.phase==='research'){
+          searchHighlight=nm;
+          showDossier(nm);
+        }
+      }
+    }
+  }
+  dragging=false;
+}
+canvas.addEventListener('mousedown',function(e){onDown(e.clientX,e.clientY);});
+canvas.addEventListener('mousemove',function(e){onMove(e.clientX,e.clientY);});
+canvas.addEventListener('mouseup',  function(e){onUp(e.clientX,e.clientY);});
+canvas.addEventListener('mouseleave',function(){dragging=false;});
+canvas.addEventListener('wheel',function(e){e.preventDefault();scale*=e.deltaY>0?0.92:1.09;scale=Math.max(0.4,Math.min(4,scale));},{passive:false});
+canvas.addEventListener('dblclick',function(){autoSpin=true;});
+var _lpd=0;
+canvas.addEventListener('touchstart',function(e){
+  if(e.touches.length===2){var dx=e.touches[0].clientX-e.touches[1].clientX,dy=e.touches[0].clientY-e.touches[1].clientY;_lpd=Math.sqrt(dx*dx+dy*dy);}
+  else{onDown(e.touches[0].clientX,e.touches[0].clientY);}
+},{passive:false});
+canvas.addEventListener('touchmove',function(e){
+  e.preventDefault();
+  if(e.touches.length===2){
+    var dx=e.touches[0].clientX-e.touches[1].clientX,dy=e.touches[0].clientY-e.touches[1].clientY;
+    var d=Math.sqrt(dx*dx+dy*dy); if(_lpd>0){scale*=d/_lpd;scale=Math.max(0.4,Math.min(4,scale));}_lpd=d;
+  } else onMove(e.touches[0].clientX,e.touches[0].clientY);
+},{passive:false});
+canvas.addEventListener('touchend',function(e){
+  _lpd=0;
+  if(!didDrag&&e.changedTouches.length>0) onUp(e.changedTouches[0].clientX,e.changedTouches[0].clientY);
+  dragging=false;
+},{passive:false});
+
+// ===================================================
+//  RENDER LOOP
+// ===================================================
+function loop(){
+  if(autoSpin&&!dragging&&GS.phase!=='game') rotY+=SPIN_SPEED;
+  drawGlobe();
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+// ===================================================
+//  SCREEN TRANSITIONS
+// ===================================================
+var ALL_SCREENS=['screen-title','screen-bloc','screen-country','screen-setup','screen-turns','screen-howto'];
+function showScreen(id){
+  ALL_SCREENS.forEach(function(s){ document.getElementById(s).style.display='none'; });
+  if(id){ document.getElementById(id).style.display='flex'; }
+}
+function hideAllScreens(){
+  ALL_SCREENS.forEach(function(s){ document.getElementById(s).style.display='none'; });
+}
+
+// Title -> Bloc
+document.getElementById('btn-start').addEventListener('click',function(){
+  showScreen('screen-turns');
+});
+
+// Turn select cards
+document.querySelectorAll('.turn-card').forEach(function(card){
+  card.addEventListener('click',function(){
+    GS.maxTurns = parseInt(this.dataset.turns);
+    showScreen('screen-bloc'); GS.phase='bloc';
+  });
+});
+
+// How to play
+document.getElementById('btn-howto').addEventListener('click',function(){
+  showScreen('screen-howto');
+});
+document.getElementById('btn-back-howto').addEventListener('click',function(){
+  showScreen('screen-title');
+});
+
+// -- RESEARCH MODE --
+document.getElementById('btn-research-mode').addEventListener('click',function(){
+  enterResearchMode();
+});
+document.getElementById('btn-exit-research').addEventListener('click',function(){
+  exitResearchMode();
+});
+
+function enterResearchMode(){
+  GS.phase='research';
+  ['screen-title','screen-bloc','screen-country','screen-setup','screen-howto','screen-turns'].forEach(function(s){
+    document.getElementById(s).style.display='none';
+  });
+  document.getElementById('research-bar').style.display='flex';
+  document.getElementById('research-hint').style.display='block';
+  document.getElementById('cog-toggle').style.display='block';
+  autoSpin=true;
+}
+function exitResearchMode(){
+  GS.phase='title';
+  document.getElementById('research-bar').style.display='none';
+  document.getElementById('research-hint').style.display='none';
+  document.getElementById('dossier').style.display='none';
+  document.getElementById('cog-toggle').style.display='none';
+  document.getElementById('cog-panel').classList.remove('open');
+  showScreen('screen-title');
+  autoSpin=true;
+}
+
+// -- DOSSIER CARD --
+function showDossier(name){
+  var info = getInfo(name);
+  var flagEl = document.getElementById('dossier-flag');
+  flagEl.innerHTML = info&&info.flag ? flagImg(info.flag, 28) : '';
+  document.getElementById('dossier-name').textContent = name.toUpperCase();
+  document.getElementById('dossier-gov').textContent = info ? (info.govType||'') : '';
+
+  // Rank badge
+  var rankEl = document.getElementById('dossier-rank-badge');
+  if(info&&info.rank){
+    var tier = info.rank<=20?'TIER I':info.rank<=40?'TIER II':'';
+    rankEl.textContent = '#'+info.rank+' GLOBAL POPULATION RANK  '+tier;
+    rankEl.style.display='block';
+  } else { rankEl.style.display='none'; }
+
+  // Bloc badge
+  var badge = document.getElementById('dossier-bloc-badge');
+  var col = info?info.color:'green';
+  badge.textContent = col==='red'?'IRON BLOC / AUTHORITARIAN':col==='blue'?'FREE WORLD / DEMOCRATIC':'SHADOW BLOC / NON-ALIGNED';
+  badge.className = 'dossier-bloc-badge '+(col==='red'?'badge-red':col==='blue'?'badge-blue':'badge-green');
+
+  // Stats
+  var html='';
+  if(info){
+    var fields=[
+      ['POPULATION',   info.population],
+      ['CAPITAL',      info.capital],
+      ['GDP',          info.gdp],
+      ['ACTIVE MILITARY', info.military],
+      ['LEADER',       info.leader],
+      ['AVG CHILDREN', info.avgChildren ? info.avgChildren+' per woman' : null],
+      ['BIRTH RATE',   info.birthRate ? info.birthRate+' per 1,000' : null],
+      ['DEATH RATE',   info.deathRate ? info.deathRate+' per 1,000' : null],
+      ['GDP TIER',     info.gdpTier ? 'TIER '+info.gdpTier+' / 5' : null]
+    ];
+    var hasStats = fields.some(function(f){return f[1];});
+    if(hasStats){
+      html+='<div class="dossier-section-title">NATIONAL STATISTICS</div>';
+      fields.forEach(function(f){
+        if(f[1]) html+='<div class="dossier-row"><span class="dossier-label">'+f[0]+'</span><span class="dossier-val">'+f[1]+'</span></div>';
+      });
+    }
+    if(info.resources&&info.resources.length){
+      html+='<div class="dossier-section-title">STRATEGIC RESOURCES</div>';
+      html+='<div class="dossier-resources">';
+      info.resources.forEach(function(r){ html+='<div class="dossier-res-tag">'+r+'</div>'; });
+      html+='</div>';
+    }
+  }
+  document.getElementById('dossier-stats').innerHTML=html;
+  document.getElementById('dossier-reason').textContent = info ? (info.colorReason||'') : '';
+
+  document.getElementById('dossier').style.display='flex';
+  document.getElementById('research-hint').style.display='none';
+}
+
+document.getElementById('dossier-close').addEventListener('click',function(){
+  document.getElementById('dossier').style.display='none';
+  if(GS.phase==='research') document.getElementById('research-hint').style.display='block';
+  searchHighlight=null;
+});
+
+// Override canvas tap during research to open dossier
+// (handled in onUp - check GS.phase==='research')
+
+// -- COG SEARCH --
+var searchHighlight = null;
+var cogOpen = false;
+
+document.getElementById('cog-toggle').addEventListener('click',function(){
+  cogOpen=!cogOpen;
+  var panel=document.getElementById('cog-panel');
+  if(cogOpen){
+    panel.classList.add('open');
+    setTimeout(function(){ document.getElementById('cog-search-input').focus(); },100);
+  } else {
+    panel.classList.remove('open');
+  }
+});
+
+document.getElementById('cog-search-input').addEventListener('input',function(){
+  var val=this.value.trim().toLowerCase();
+  var sugg=document.getElementById('cog-suggestions');
+  sugg.innerHTML='';
+  if(val.length<1) return;
+  var matches=Object.keys(COUNTRY_DATA).filter(function(n){
+    return n.toLowerCase().indexOf(val)!==-1;
+  }).slice(0,8);
+  matches.forEach(function(name){
+    var div=document.createElement('div');
+    div.className='cog-suggestion';
+    var info=COUNTRY_DATA[name];
+    var fi=info&&info.flag?flagImg(info.flag,12):'';
+    div.innerHTML=fi+' '+name.toUpperCase();
+    div.addEventListener('click',function(){
+      flyToCountry(name);
+      document.getElementById('cog-suggestions').innerHTML='';
+      document.getElementById('cog-search-input').value='';
+      document.getElementById('cog-panel').classList.remove('open');
+      cogOpen=false;
+    });
+    sugg.appendChild(div);
+  });
+});
+
+function flyToCountry(name){
+  var c=getCentroid(name);
+  searchHighlight=name;
+  autoSpin=false;
+  animateGlobeTo(c[0],c[1],function(){
+    showDossier(name);
+  });
+}
+
+// Bloc cards
+document.querySelectorAll('.bloc-card').forEach(function(card){
+  card.addEventListener('click',function(){
+    GS.playerBloc=this.dataset.bloc;
+    // Assign AIs to other blocs
+    var blocs=['red','blue','green'];
+    var remaining=blocs.filter(function(b){return b!==GS.playerBloc;});
+    GS.ai[0].bloc='red'; GS.ai[1].bloc='green';
+    if(GS.playerBloc==='red'){ GS.ai[0].bloc='blue'; GS.ai[1].bloc='green'; }
+    else if(GS.playerBloc==='blue'){ GS.ai[0].bloc='red'; GS.ai[1].bloc='green'; }
+    else { GS.ai[0].bloc='red'; GS.ai[1].bloc='blue'; }
+    buildCountryPicker();
+    showScreen('screen-country'); GS.phase='country';
+  });
+});
+
+function buildCountryPicker(){
+  var list=document.getElementById('country-list');
+  list.innerHTML='';
+  var label=document.getElementById('country-bloc-label');
+  var bname={red:'IRON BLOC',blue:'FREE WORLD',green:'SHADOW BLOC'};
+  label.textContent='BLOC: '+bname[GS.playerBloc];
+  var countries=[];
+  Object.keys(COUNTRY_DATA).forEach(function(name){
+    if(COUNTRY_DATA[name].color===GS.playerBloc) countries.push(name);
+  });
+  countries.sort();
+  countries.forEach(function(name){
+    var btn=document.createElement('button');
+    btn.className='country-btn '+GS.playerBloc;
+    var info=COUNTRY_DATA[name];
+    var fi=info.flag?flagImg(info.flag,12):'';
+    btn.innerHTML=fi+' '+name.toUpperCase();
+    btn.addEventListener('click',function(){
+      GS.playerCountry=name; GS.playerInfo=getInfo(name);
+      buildSetupScreen(); showScreen('screen-setup'); GS.phase='setup';
+    });
+    list.appendChild(btn);
+  });
+}
+
+document.getElementById('btn-back-bloc').addEventListener('click',function(){
+  showScreen('screen-bloc'); GS.phase='bloc';
+});
+
+function buildSetupScreen(){
+  var info=GS.playerInfo;
+  var fi=info&&info.flag?flagImg(info.flag,36):'';
+  document.getElementById('setup-flag').innerHTML=fi;
+  document.getElementById('setup-country-name').textContent=GS.playerCountry.toUpperCase();
+  document.getElementById('setup-gov').textContent=info?(info.govType||''):'';
+  var tier=info?(info.gdpTier||2):2;
+  var treasury=GDP_TREASURY[tier]||100;
+  GS.playerTreasury=treasury;
+  var statsEl=document.getElementById('setup-stats');
+  statsEl.innerHTML='';
+  var fields=[
+    ['POPULATION',info?info.population:'?'],['CAPITAL',info?info.capital:'?'],
+    ['GDP',info?info.gdp:'?'],['MILITARY',info?info.military:'?'],
+    ['LEADER',info?info.leader:'?'],['BIRTH RATE',info?(info.birthRate+'/1k'):'?']
+  ];
+  fields.forEach(function(f){
+    statsEl.innerHTML+='<div class="ss-row"><div class="ss-label">'+f[0]+'</div><div class="ss-val">'+f[1]+'</div></div>';
+  });
+  var resEl=document.getElementById('setup-resources');
+  resEl.innerHTML='';
+  if(info&&info.resources){
+    info.resources.forEach(function(r){
+      resEl.innerHTML+='<div class="res-tag">'+r+'</div>';
+    });
+  }
+  document.getElementById('setup-treasury').textContent='STARTING TREASURY: $'+treasury+'B';
+  // Assign AI countries
+  GS.ai.forEach(function(ai){
+    var choices=Object.keys(COUNTRY_DATA).filter(function(n){
+      return COUNTRY_DATA[n].color===ai.bloc && n!==GS.playerCountry;
+    });
+    // Pick highest GDP tier
+    choices.sort(function(a,b){return (COUNTRY_DATA[b].gdpTier||1)-(COUNTRY_DATA[a].gdpTier||1);});
+    ai.country=choices[0]||choices[0];
+    ai.treasury=GDP_TREASURY[COUNTRY_DATA[ai.country]?COUNTRY_DATA[ai.country].gdpTier||2:2]||100;
+  });
+}
+
+document.getElementById('btn-begin').addEventListener('click',function(){
+  startGame();
+});
+
+// ===================================================
+//  GAME START
+// ===================================================
+function startGame(){
+  GS.phase='game'; GS.turn=1;
+  GS.allianceMap[GS.playerCountry]='player';
+  GS.ai.forEach(function(ai,i){ GS.allianceMap[ai.country]='ai'+i; });
+  hideAllScreens();
+  // Show game UI
+  document.getElementById('hud').style.display='flex';
+  document.getElementById('legend').style.display='block';
+  document.getElementById('info-bar').style.display='block';
+  document.getElementById('cog-toggle').style.display='block';
+  updateHUD();
+  // Zoom globe to player country
+  var c=getCentroid(GS.playerCountry);
+  animateGlobeTo(c[0],c[1],function(){ beginPlayerTurn(); });
+}
+
+// The confirmed upright rotX value from user calibration
+var UPRIGHT_ROT_X = -1.3647;
+
+function animateGlobeTo(targetLon, targetLat, cb){
+  autoSpin=false;
+  // Only spin rotY to bring target longitude into view.
+  // Always restore rotX to the known-good upright value.
+  // rotY: the globe's "front" faces the +X axis in this projection.
+  // To center longitude L: rotY = PI/2 - L_radians  (empirically derived)
+  var tLon = targetLon * Math.PI / 180;
+  var tRotY = Math.PI/2 - tLon;
+  // Normalise both current rotY and target into same 2PI window
+  var sX = rotX, sY = rotY;
+  var tRotX = UPRIGHT_ROT_X;
+  // Take shortest path for rotY
+  var dY = tRotY - sY;
+  while(dY >  Math.PI) dY -= Math.PI*2;
+  while(dY < -Math.PI) dY += Math.PI*2;
+  var dX = tRotX - sX;
+  var steps=50, step=0;
+  function tick(){
+    step++;
+    var t=step/steps, ease=t<.5?2*t*t:(-1+(4-2*t)*t);
+    rotY = sY + dY*ease;
+    rotX = sX + dX*ease;
+    if(step<steps) requestAnimationFrame(tick);
+    else { rotX=tRotX; if(cb) cb(); }
+  }
+  requestAnimationFrame(tick);
+}
+
+function updateHUD(){
+  var info=GS.playerInfo;
+  document.getElementById('hud-flag').innerHTML=info&&info.flag?flagImg(info.flag,16):'';
+  document.getElementById('hud-country').textContent=GS.playerCountry.toUpperCase();
+  document.getElementById('hud-treasury').textContent='$'+GS.playerTreasury+'B';
+  document.getElementById('hud-turn').textContent='TURN '+GS.turn+'/'+GS.maxTurns;
+  document.getElementById('tension-bar-fill').style.width=GS.tension+'%';
+  document.getElementById('tension-bar-fill').style.background=GS.tension>70?'#ff4444':GS.tension>45?'#ffcc00':'#3fff00';
+  document.getElementById('tension-pct').textContent=GS.tension+'%';
+}
+
+// ===================================================
+//  PLAYER TURN
+// ===================================================
+var _pendingCard=null, _pendingAction=null;
+
+function beginPlayerTurn(){
+  autoSpin=false;
+  updateHUD();
+  document.getElementById('hud-phase').textContent='YOUR TURN';
+  showDice('ROLL FOR ACTION CATEGORY', function(roll){
+    var cat = roll<=2?'dip':roll<=4?'eco':roll===5?'mil':'wild';
+    var catNames={dip:'DIPLOMATIC',eco:'ECONOMIC',mil:'MILITARY',wild:'WILD CARD'};
+    var catCls  ={dip:'cat-dip',eco:'cat-eco',mil:'cat-mil',wild:'cat-wild'};
+    document.getElementById('dice-category').textContent=catNames[cat];
+    document.getElementById('dice-category').className=catCls[cat];
+    GS.currentCategory=cat;
+    setTimeout(function(){
+      hideDice();
+      showActionCards(cat);
+    },1200);
+  });
+}
+
+function showDice(title, onRoll){
+  var overlay=document.getElementById('dice-overlay');
+  var face=document.getElementById('dice-face');
+  var resultLabel=document.getElementById('dice-result-label');
+  var catEl=document.getElementById('dice-category');
+  var btnRoll=document.getElementById('btn-roll');
+  document.getElementById('dice-title').textContent=title;
+  resultLabel.textContent=''; catEl.textContent=''; catEl.className='';
+  face.innerHTML=diceFace(1); face.className='';
+  overlay.style.display='flex'; btnRoll.disabled=false;
+  btnRoll.onclick=function(){
+    btnRoll.disabled=true;
+    var roll=Math.ceil(Math.random()*6);
+    face.innerHTML=diceFace(Math.ceil(Math.random()*6));
+    face.className='rolling';
+    var ticks=0, interval=setInterval(function(){
+      face.innerHTML=diceFace(Math.ceil(Math.random()*6)); ticks++;
+      if(ticks>10){clearInterval(interval);face.innerHTML=diceFace(roll);face.className='';resultLabel.textContent='YOU ROLLED A '+roll;if(onRoll)onRoll(roll);}
+    },60);
+  };
+}
+function hideDice(){ document.getElementById('dice-overlay').style.display='none'; }
+function diceFace(n){
+  // Each die face: 9 grid positions (3x3), 1=dot, 0=empty
+  // positions: TL, TC, TR, ML, MC, MR, BL, BC, BR
+  var faces = {
+    1: [0,0,0, 0,1,0, 0,0,0],
+    2: [1,0,0, 0,0,0, 0,0,1],
+    3: [1,0,0, 0,1,0, 0,0,1],
+    4: [1,0,1, 0,0,0, 1,0,1],
+    5: [1,0,1, 0,1,0, 1,0,1],
+    6: [1,0,1, 1,0,1, 1,0,1]
+  };
+  var dots = faces[n] || faces[1];
+  return dots.map(function(d){
+    return '<div class="dot'+(d?'':' off')+'"></div>';
+  }).join('');
+}
+
+function showActionCards(cat){
+  var actions=getActionsForCategory(cat, GS.playerInfo);
+  var row=document.getElementById('cards-row');
+  row.innerHTML='';
+  actions.forEach(function(action){
+    var odds=calcOdds(action, GS.playerInfo, null);
+    var ol=oddsLabel(odds);
+    var card=document.createElement('div');
+    card.className='action-card cat-'+action.cat;
+    card.innerHTML='<div class="card-cat-bar"></div>'+
+      '<div class="card-icon">'+action.icon+'</div>'+
+      '<div class="card-name">'+action.name+'</div>'+
+      '<div class="card-cost">COST: $'+action.cost+'B</div>'+
+      '<div class="card-odds '+ol.cls+'">'+ol.text+'</div>'+
+      '<div class="card-desc">'+action.desc+'</div>';
+    var canAfford=GS.playerTreasury>=action.cost;
+    if(!canAfford){ card.style.opacity='0.4'; card.style.cursor='not-allowed'; }
+    else {
+      card.addEventListener('click',function(){
+        document.querySelectorAll('.action-card').forEach(function(c){c.classList.remove('selected');});
+        card.classList.add('selected');
+        _pendingAction=action;
+        enterTargetingMode();
+      });
+    }
+    row.appendChild(card);
+  });
+  document.getElementById('cards-overlay').style.display='flex';
+}
+function hideCards(){ document.getElementById('cards-overlay').style.display='none'; }
+
+function enterTargetingMode(){
+  GS.targetingMode=true;
+  document.getElementById('target-prompt').style.display='block';
+}
+function exitTargetingMode(){
+  GS.targetingMode=false;
+  document.getElementById('target-prompt').style.display='none';
+}
+
+function handleTargetPick(targetName){
+  if(!_pendingAction) return;
+  if(targetName===GS.playerCountry){ return; } // can't target self (for most actions)
+  exitTargetingMode();
+  hideCards();
+  selectedCountry=targetName;
+  var action=_pendingAction;
+  var targetInfo=getInfo(targetName);
+  var odds=calcOdds(action, GS.playerInfo, targetInfo);
+  // Execution roll
+  showDice('EXECUTION ROLL', function(roll){
+    var success = (roll/6) <= odds;
+    var partial  = !success && (roll/6) <= odds*1.4;
+    document.getElementById('dice-category').className='';
+    setTimeout(function(){
+      hideDice();
+      executePlayerAction(action, targetName, targetInfo, roll, success, partial, odds);
+    },1200);
+  });
+}
+
+function executePlayerAction(action, targetName, targetInfo, roll, success, partial, odds){
+  // Deduct cost
+  GS.playerTreasury -= action.cost;
+  if(GS.playerTreasury<0) GS.playerTreasury=0;
+
+  var outcome, detail, delta=0;
+  if(success){
+    outcome='SUCCESS'; 
+    if(action.id==='trade')  { delta=15; GS.playerTreasury+=delta; }
+    if(action.id==='invest') { delta=10; GS.playerTreasury+=delta; }
+    if(action.id==='arms')   { delta=25; GS.playerTreasury+=delta; GS.tension=Math.min(100,GS.tension+8); }
+    if(action.id==='ally'||action.id==='envoy'||action.id==='aid'||action.id==='defpact'){
+      if(GS.allianceMap[targetName]!=='player'){
+        GS.allianceMap[targetName]='player'; GS.playerAllies.push(targetName);
+      }
+      GS.tension=Math.max(0,GS.tension-3);
+    }
+    if(action.id==='sanctions') { GS.tension=Math.min(100,GS.tension+5); }
+    if(action.id==='covert'||action.id==='spy_out') { GS.playerOps++; GS.tension=Math.min(100,GS.tension+5); }
+    if(action.id==='deploy') { GS.tension=Math.min(100,GS.tension+8); }
+    detail='Roll: '+roll+' | Needed: '+Math.ceil(odds*6)+' or less | '+(delta>0?'+$'+delta+'B':'');
+  } else if(partial){
+    outcome='PARTIAL';
+    detail='Roll: '+roll+' | Borderline result. Limited effect.';
+    if(action.cat==='eco') { delta=5; GS.playerTreasury+=delta; }
+  } else {
+    outcome='FAILED';
+    detail='Roll: '+roll+' | Needed: '+Math.ceil(odds*6)+' or less | No effect.';
+    if(action.cat==='mil') GS.tension=Math.min(100,GS.tension+3);
+  }
+
+  // Add arrow
+  addArrow(GS.playerCountry, targetName, action.cat, 'player');
+  updateHUD();
+
+  showResult(action.name+' > '+targetName.toUpperCase(), outcome, detail, function(){
+    selectedCountry=null;
+    document.getElementById('hud-phase').textContent='AI TURNS';
+    runAITurns(0);
+  });
+}
+
+function showResult(actionLabel, outcome, detail, cb){
+  document.getElementById('rt-action').textContent=actionLabel;
+  var outcomeEl=document.getElementById('rt-outcome');
+  outcomeEl.textContent=outcome;
+  outcomeEl.className='rt-outcome '+(outcome==='SUCCESS'?'success':outcome==='FAILED'?'fail':'partial');
+  document.getElementById('rt-detail').textContent=detail;
+  var toast=document.getElementById('result-toast');
+  toast.style.display='block';
+  document.getElementById('btn-result-ok').onclick=function(){ toast.style.display='none'; if(cb)cb(); };
+}
+
+// ===================================================
+//  AI TURNS
+// ===================================================
+function runAITurns(idx){
+  if(idx>=GS.ai.length){ endTurn(); return; }
+  var ai=GS.ai[idx];
+  document.getElementById('hud-phase').textContent=ai.name+' MOVES';
+  // AI rolls
+  var catRoll=Math.ceil(Math.random()*6);
+  var cat=catRoll<=2?'dip':catRoll<=4?'eco':catRoll===5?'mil':'wild';
+  // Personality weighting for wild
+  if(cat==='wild'){
+    if(ai.personality==='aggressive') cat='mil';
+    else if(ai.personality==='opportunist'){
+      // Copy leader's style
+      var leader=getLeader();
+      cat=leader==='player'?'eco':'mil';
+    }
+  }
+  // Pick action
+  var actions=getActionsForCategory(cat, getInfo(ai.country));
+  var action=actions[Math.floor(Math.random()*actions.length)];
+  // Pick target - prefer neutral countries or enemy allies
+  var target=pickAITarget(ai, action);
+  if(!target){ setTimeout(function(){runAITurns(idx+1);},600); return; }
+  // Execution
+  var targetInfo=getInfo(target);
+  var odds=calcOdds(action, getInfo(ai.country), targetInfo);
+  var roll=Math.ceil(Math.random()*6);
+  var success=(roll/6)<=odds;
+  // Apply AI outcome
+  if(success){
+    ai.treasury-=action.cost; if(ai.treasury<0)ai.treasury=0;
+    if(action.id==='ally'||action.id==='envoy'||action.id==='aid'||action.id==='defpact'){
+      if(!GS.allianceMap[target]){ GS.allianceMap[target]='ai'+idx; ai.allies.push(target); }
+    }
+    if(action.id==='trade'||action.id==='invest') ai.treasury+=15;
+    if(action.id==='arms') { ai.treasury+=20; GS.tension=Math.min(100,GS.tension+8); }
+    if(action.id==='covert'||action.id==='deploy') GS.tension=Math.min(100,GS.tension+5);
+  } else {
+    ai.treasury-=Math.round(action.cost/2); if(ai.treasury<0)ai.treasury=0;
+  }
+  // Add income
+  var aiInfo=getInfo(ai.country);
+  ai.treasury+=aiInfo?(GDP_INCOME[aiInfo.gdpTier||2]||20):20;
+  addArrow(ai.country, target, cat, 'ai'+idx);
+  ai.lastCat=cat; ai.lastArrow={from:ai.country,to:target};
+  updateHUD();
+  // Show AI toast
+  showAIToast(ai.name, ai.country, target, cat, function(){
+    setTimeout(function(){runAITurns(idx+1);},400);
+  });
+}
+
+function showAIToast(aiName, from, to, cat, cb){
+  var catNames={dip:'DIPLOMATIC',eco:'ECONOMIC',mil:'MILITARY',wild:'WILD CARD'};
+  document.getElementById('at-who').textContent=aiName+' ('+from.toUpperCase()+')';
+  document.getElementById('at-move').textContent=catNames[cat]+' ACTION > '+to.toUpperCase();
+  var toast=document.getElementById('ai-toast');
+  toast.style.display='block';
+  setTimeout(function(){ toast.style.display='none'; if(cb)cb(); },2200);
+}
+
+function pickAITarget(ai, action){
+  var allNames=Object.keys(COUNTRY_DATA);
+  var neutrals=allNames.filter(function(n){ return !GS.allianceMap[n] && n!==ai.country && n!==GS.playerCountry; });
+  var enemies =allNames.filter(function(n){ return GS.allianceMap[n]==='player' && n!==GS.playerCountry; });
+  if(action.cat==='mil' && enemies.length>0 && Math.random()<0.4) return enemies[Math.floor(Math.random()*enemies.length)];
+  if(neutrals.length>0) return neutrals[Math.floor(Math.random()*neutrals.length)];
+  return allNames[Math.floor(Math.random()*allNames.length)];
+}
+
+function getLeader(){
+  var scores=[scoreTotal('player')];
+  GS.ai.forEach(function(ai,i){ scores.push(scoreTotal('ai'+i)); });
+  var max=Math.max.apply(null,scores);
+  if(scores[0]===max) return 'player';
+  return 'ai'+(scores.indexOf(max)-1);
+}
+
+function addArrow(from, to, cat, owner){
+  // Remove old arrow for this owner
+  GS.arrows=GS.arrows.filter(function(a){return a.owner!==owner;});
+  GS.arrows.push({from:from,to:to,cat:cat,owner:owner,alpha:1});
+}
+
+// ===================================================
+//  END OF TURN
+// ===================================================
+function endTurn(){
+  // Income
+  var income=GDP_INCOME[GS.playerInfo?(GS.playerInfo.gdpTier||2):2]||20;
+  income += GS.playerAllies.length * 5;
+  GS.playerTreasury+=income;
+  GS.ai.forEach(function(ai,i){
+    var aiInfo=getInfo(ai.country);
+    ai.treasury+=aiInfo?(GDP_INCOME[aiInfo.gdpTier||2]||20):20;
+    ai.treasury+=ai.allies.length*5;
+  });
+  // Tension natural decay
+  GS.tension=Math.max(0,GS.tension-2);
+  updateHUD();
+
+  // -- PHASE 2: Disease outbreak check --
+  var outbreakMsgs=[];
+  if(Math.random()<0.15){
+    var outbreak=pickOutbreakCountry();
+    if(outbreak){
+      GS.diseaseOutbreaks=GS.diseaseOutbreaks||{};
+      GS.diseaseOutbreaks[outbreak]=(GS.diseaseOutbreaks[outbreak]||0)+1;
+      showDiseaseOnGlobe(outbreak);
+      var contained=tryContainDisease(outbreak);
+      if(contained){
+        outbreakMsgs.push('OUTBREAK IN '+outbreak.toUpperCase()+' - CONTAINED');
+        GS.playerContainments++;
+        GS.tension=Math.max(0,GS.tension-1);
+      } else {
+        outbreakMsgs.push('OUTBREAK IN '+outbreak.toUpperCase()+' - SPREADING');
+        GS.tension=Math.min(100,GS.tension+4);
+        // Spread to 1 neighbour
+        var neighbour=pickNeighbour(outbreak);
+        if(neighbour){ GS.diseaseOutbreaks[neighbour]=(GS.diseaseOutbreaks[neighbour]||0)+1; showDiseaseOnGlobe(neighbour); }
+      }
+    }
+  }
+
+  // -- PHASE 2: World War check --
+  if(GS.tension>=100){
+    showEventTicker('TENSION MAXED - WORLD WAR ERUPTS',3000,function(){
+      triggerWorldWar();
+    });
+    return;
+  }
+
+  // Tension warning
+  if(GS.tension>=75){
+    var warn=document.getElementById('tension-warning');
+    warn.style.display='block';
+    setTimeout(function(){warn.style.display='none';},3000);
+  }
+
+  if(GS.turn>=GS.maxTurns){ 
+    if(outbreakMsgs.length) showEventTicker(outbreakMsgs[0],2000,function(){showGameOver();});
+    else showGameOver(); 
+    return; 
+  }
+  GS.turn++;
+
+  if(outbreakMsgs.length){
+    showEventTicker(outbreakMsgs[0],2500,function(){
+      showScoreboard(function(){ beginPlayerTurn(); });
+    });
+  } else {
+    showScoreboard(function(){ beginPlayerTurn(); });
+  }
+}
+
+// -- PHASE 2 HELPERS --
+
+function pickOutbreakCountry(){
+  // Weight by vulnerability: high birthRate + low gdpTier = more vulnerable
+  var names=Object.keys(COUNTRY_DATA);
+  var weighted=[];
+  names.forEach(function(n){
+    var info=COUNTRY_DATA[n];
+    var br=parseFloat(info.birthRate)||15;
+    var tier=info.gdpTier||2;
+    var weight=Math.round((br/10)*(6-tier));
+    for(var i=0;i<weight;i++) weighted.push(n);
+  });
+  return weighted[Math.floor(Math.random()*weighted.length)]||names[0];
+}
+
+function tryContainDisease(country){
+  // Player or allied country with TECH/FOOD resource has better containment
+  var isAlly=GS.allianceMap[country]==='player';
+  var info=getInfo(country);
+  var hasTech=info&&info.resources&&(info.resources.indexOf('TECH')!==-1||info.resources.indexOf('FOOD')!==-1);
+  var baseChance=0.35;
+  if(isAlly) baseChance+=0.25;
+  if(hasTech) baseChance+=0.15;
+  // Player can spend treasury to boost
+  return Math.random()<baseChance;
+}
+
+function pickNeighbour(country){
+  // Simple geographic proximity via centroid distance
+  var c=CENTROIDS[country]; if(!c) return null;
+  var names=Object.keys(CENTROIDS);
+  var closest=null, minDist=999;
+  names.forEach(function(n){
+    if(n===country) return;
+    var nc=CENTROIDS[n];
+    var d=Math.sqrt(Math.pow(nc[0]-c[0],2)+Math.pow(nc[1]-c[1],2));
+    if(d<minDist){ minDist=d; closest=n; }
+  });
+  return closest;
+}
+
+var _diseaseEls=[];
+function showDiseaseOnGlobe(country){
+  var c=getCentroid(country);
+  var p=pts(c[0],c[1]);
+  if(!p.vis) return;
+  // Create pulsing ring element
+  for(var i=0;i<3;i++){
+    (function(delay){
+      setTimeout(function(){
+        var el=document.createElement('div');
+        el.className='disease-ring';
+        var sz=40;
+        el.style.width=sz+'px'; el.style.height=sz+'px';
+        el.style.left=(p.sx-sz/2)+'px'; el.style.top=(p.sy-sz/2)+'px';
+        el.style.animationDelay=(delay*0.3)+'s';
+        document.body.appendChild(el);
+        _diseaseEls.push(el);
+        setTimeout(function(){
+          if(el.parentNode) el.parentNode.removeChild(el);
+        },4000);
+      },delay*200);
+    })(i);
+  }
+}
+
+function showEventTicker(msg, duration, cb){
+  var el=document.getElementById('event-ticker');
+  el.textContent='* '+msg+' *';
+  el.classList.add('show');
+  setTimeout(function(){
+    el.classList.remove('show');
+    setTimeout(function(){ if(cb) cb(); },400);
+  },duration||2000);
+}
+
+function triggerWorldWar(){
+  // Calculate military scores for each player
+  var players=[
+    {name:GS.playerCountry, flag:GS.playerInfo?GS.playerInfo.flag:null,
+     milScore:calcMilScore('player'), owner:'player'},
+    {name:GS.ai[0].country, flag:getInfo(GS.ai[0].country)?getInfo(GS.ai[0].country).flag:null,
+     milScore:calcMilScore('ai0'), owner:'ai0'},
+    {name:GS.ai[1].country, flag:getInfo(GS.ai[1].country)?getInfo(GS.ai[1].country).flag:null,
+     milScore:calcMilScore('ai1'), owner:'ai1'}
+  ].sort(function(a,b){return b.milScore-a.milScore;});
+
+  var winner=players[0];
+  var isPlayer=winner.owner==='player';
+
+  document.getElementById('ww-result').innerHTML='GLOBAL CONFLICT RESOLVES AFTER 72 HOURS.<br>'+(isPlayer?'YOUR FORCES PREVAIL':winner.name.toUpperCase()+' FORCES PREVAIL')+'<br>MILITARY STRENGTH DETERMINES ALL.';
+
+  var rowsHTML='';
+  players.forEach(function(p,i){
+    var fi=p.flag?flagImg(p.flag,14):'';
+    var medals=['&#x1F947;','&#x1F948;','&#x1F949;'];
+    rowsHTML+='<div class="ww-row">'+
+      '<span>'+medals[i]+'</span>'+
+      '<span>'+fi+'</span>'+
+      '<span style="flex:1;letter-spacing:2px;color:'+(p.owner==='player'?'#ccff66':'#7a9a6a')+'">'+p.name.toUpperCase()+'</span>'+
+      '<span style="color:#ff9944">MIL: '+p.milScore+'</span>'+
+    '</div>';
+  });
+  document.getElementById('ww-rows').innerHTML=rowsHTML;
+
+  // Big military bonus to winner
+  if(isPlayer) GS.playerTreasury+=100;
+  else { var ai=GS.ai[parseInt(winner.owner.replace('ai',''))]; if(ai) ai.treasury+=100; }
+  GS.tension=100;
+
+  document.getElementById('worldwar').style.display='flex';
+  document.getElementById('btn-ww-continue').onclick=function(){
+    document.getElementById('worldwar').style.display='none';
+    showGameOver();
+  };
+}
+
+function calcMilScore(owner){
+  var country, allies;
+  if(owner==='player'){ country=GS.playerCountry; allies=GS.playerAllies; }
+  else { var ai=GS.ai[parseInt(owner.replace('ai',''))]; country=ai.country; allies=ai.allies; }
+  var info=getInfo(country);
+  var base=0;
+  if(info&&info.military){
+    var m=parseInt((info.military+'').replace(/[^0-9]/g,''))||0;
+    base=Math.round(m/10000);
+  }
+  base+=allies.length*5;
+  if(owner==='player') base+=GS.playerOps*3;
+  return base;
+}
+
+function calcScore(owner){
+  var treasury=0,allies=0,ops=0,containments=0;
+  if(owner==='player'){
+    treasury=GS.playerTreasury; allies=GS.playerAllies.length;
+    ops=GS.playerOps; containments=GS.playerContainments||0;
+  } else {
+    var aidx=parseInt(owner.replace('ai',''));
+    var ai=GS.ai[aidx]; treasury=ai.treasury; allies=ai.allies.length;
+  }
+  var tb=Math.max(0,Math.round((100-GS.tension)*0.5));
+  var m=Math.round(treasury*0.40);
+  var a=Math.round(allies*30*0.30);
+  var o=Math.round(ops*12*0.10);
+  var d=Math.round(containments*15*0.15);
+  var st=Math.round(tb*0.05);
+  return {total:Math.round(m+a+o+d+st),money:m,ally:a,ops:o,disease:d,stability:st,
+          treasury:treasury,allies:allies,ops_raw:ops,containments:containments};
+}
+function scoreTotal(owner){var s=calcScore(owner);return s.total||0;}
+
+function showScoreboard(cb){
+  var scores=[
+    {name:GS.playerCountry,flag:GS.playerInfo?GS.playerInfo.flag:null,sc:calcScore('player'),owner:'player'},
+    {name:GS.ai[0].country,flag:getInfo(GS.ai[0].country)?getInfo(GS.ai[0].country).flag:null,sc:calcScore('ai0'),owner:'ai0'},
+    {name:GS.ai[1].country,flag:getInfo(GS.ai[1].country)?getInfo(GS.ai[1].country).flag:null,sc:calcScore('ai1'),owner:'ai1'}
+  ].sort(function(a,b){return b.sc.total-a.sc.total;});
+  var rankIcons=['#1','#2','#3'];
+  var html='';
+  scores.forEach(function(s,i){
+    var fi=s.flag?flagImg(s.flag,16):'';
+    var ip=s.owner==='player';
+    var sc=s.sc||{total:0,treasury:0,allies:0,money:0,ally:0,ops:0,disease:0,stability:0,containments:0};
+    html+='<div class="sb-row" style="'+(ip?'background:rgba(30,80,10,0.3);border-radius:3px;padding:8px 4px;':'')+'">'+
+      '<div class="sb-rank">'+rankIcons[i]+'</div>'+
+      '<div class="sb-flag">'+fi+'</div>'+
+      '<div style="flex:1">'+
+        '<div class="sb-name" style="color:'+(ip?'#ccff66':'#7a9a6a')+'">'+s.name.toUpperCase()+(ip?' [YOU]':'')+'</div>'+
+        '<div class="sb-breakdown">$'+sc.treasury+'B | '+sc.allies+' ALLIES'+(ip?' | '+(sc.containments||0)+' CONTAINED':'')+' </div>'+
+        (ip?'<div class="score-breakdown">'+
+          '<span class="score-cat">MONEY</span><span class="score-pts">'+sc.money+'</span>'+
+          '<span class="score-cat">ALLIES</span><span class="score-pts">'+sc.ally+'</span>'+
+          '<span class="score-cat">OPS</span><span class="score-pts">'+sc.ops+'</span>'+
+          '<span class="score-cat">DISEASE</span><span class="score-pts">'+sc.disease+'</span>'+
+        '</div>':'')+
+      '</div>'+
+      '<div class="sb-score">'+sc.total+'</div>'+
+    '</div>';
+  });
+  document.getElementById('sb-rows').innerHTML=html;
+  document.getElementById('scoreboard-title').textContent='END OF TURN '+GS.turn+' REPORT';
+  document.getElementById('scoreboard').style.display='flex';
+  document.getElementById('btn-next-turn').onclick=function(){
+    document.getElementById('scoreboard').style.display='none';
+    if(cb) cb();
+  };
+}
+
+function showGameOver(){
+  var scores=[
+    {name:GS.playerCountry,flag:GS.playerInfo?GS.playerInfo.flag:null,sc:calcScore('player'),owner:'player'},
+    {name:GS.ai[0].country,flag:getInfo(GS.ai[0].country)?getInfo(GS.ai[0].country).flag:null,sc:calcScore('ai0'),owner:'ai0'},
+    {name:GS.ai[1].country,flag:getInfo(GS.ai[1].country)?getInfo(GS.ai[1].country).flag:null,sc:calcScore('ai1'),owner:'ai1'}
+  ].sort(function(a,b){return b.sc.total-a.sc.total;});
+  var winner=scores[0];
+  var isPlayer=winner.owner==='player';
+  document.getElementById('go-title').textContent=isPlayer?'VICTORY':'DEFEAT';
+  document.getElementById('go-title').style.color=isPlayer?'#7fff00':'#ff4444';
+  document.getElementById('go-winner').textContent=(isPlayer?'YOU WIN':''+winner.name.toUpperCase()+' WINS')+' WITH '+winner.sc.total+' POINTS';
+  var rankIcons=['#1','#2','#3'];
+  var html='';
+  scores.forEach(function(s,i){
+    var fi=s.flag?flagImg(s.flag,16):'';
+    var ip=s.owner==='player';
+    var sc=s.sc||{total:0,treasury:0,allies:0,money:0,ally:0,ops:0,disease:0,stability:0,containments:0};
+    html+='<div class="sb-row" style="margin-bottom:4px;'+(ip?'background:rgba(30,80,10,0.3);border-radius:3px;padding:6px 4px;':'')+'">'+
+      '<div class="sb-rank">'+rankIcons[i]+'</div>'+
+      '<div class="sb-flag">'+fi+'</div>'+
+      '<div style="flex:1">'+
+        '<div class="sb-name" style="font-size:10px;letter-spacing:2px;color:'+(ip?'#ccff66':'#7a9a6a')+'">'+s.name.toUpperCase()+'</div>'+
+        '<div class="sb-breakdown">$'+sc.treasury+'B | '+sc.allies+' ALLIES</div>'+
+        (ip?'<div class="score-breakdown">'+
+          '<span class="score-cat">MONEY 40%</span><span class="score-pts">'+sc.money+'</span>'+
+          '<span class="score-cat">ALLIES 30%</span><span class="score-pts">'+sc.ally+'</span>'+
+          '<span class="score-cat">OPS 10%</span><span class="score-pts">'+sc.ops+'</span>'+
+          '<span class="score-cat">DISEASE 15%</span><span class="score-pts">'+sc.disease+'</span>'+
+          '<span class="score-cat">STABILITY 5%</span><span class="score-pts">'+sc.stability+'</span>'+
+        '</div>':'')+
+      '</div>'+
+      '<div class="sb-score">'+sc.total+'</div>'+
+    '</div>';
+  });
+  document.getElementById('go-scores').innerHTML=html;
+  document.getElementById('gameover').style.display='flex';
+}
+
+document.getElementById('btn-play-again').addEventListener('click',function(){
+  document.getElementById('gameover').style.display='none';
+  location.reload();
+});
+
+// ===================================================
+//  COUNTRY INFO POPUP (during game, tap to view)
+// ===================================================
+function showCountryPopup(name){
+  var info=getInfo(name);
+  var fi=info&&info.flag?flagImg(info.flag,16):'';
+  document.getElementById('popup-flag').innerHTML=fi;
+  document.getElementById('popup-country').textContent=name.toUpperCase();
+  var html='';
+  if(info){
+    if(info.population) html+=sRow('POPULATION',info.population);
+    if(info.capital)    html+=sRow('CAPITAL',info.capital);
+    if(info.gdp)        html+=sRow('GDP',info.gdp);
+    if(info.military)   html+=sRow('MILITARY',info.military);
+    if(info.leader)     html+=sRow('LEADER',info.leader);
+    if(info.resources)  html+=sRow('RESOURCES',info.resources.join(', '));
+    var ally=GS.allianceMap[name];
+    var allyLabel=ally==='player'?'YOUR ALLY':ally==='ai0'?GS.ai[0].name:ally==='ai1'?GS.ai[1].name:'NEUTRAL';
+    html+=sRow('ALIGNMENT',allyLabel);
+  }
+  document.getElementById('popup-stats').innerHTML=html;
+  var popup=document.getElementById('popup');
+  popup.style.left=Math.min(W-310,Math.max(10,W/2-150))+'px';
+  popup.style.top='50px';
+  popup.className='visible';
+}
+function sRow(l,v){ return '<div class="stat-row"><span class="stat-label">'+l+'</span><span class="stat-val">'+v+'</span></div>'; }
+document.getElementById('popup-close').addEventListener('click',function(){ document.getElementById('popup').className=''; });
+
+// ===================================================
+//  LOAD GEOJSON
+// ===================================================
+function convertTopoJSON(topo){
+  var keys=Object.keys(topo.objects||{}); if(!keys.length) return null;
+  var obj=topo.objects[keys[0]]; if(!obj||!obj.geometries) return null;
+  var sc=topo.transform&&topo.transform.scale, tr=topo.transform&&topo.transform.translate;
+  function decodeArcs(arcs){
+    var result=[]; 
+    for(var a=0;a<arcs.length;a++){
+      var arc=topo.arcs[arcs[a]>=0?arcs[a]:~arcs[a]],coords=[],lx=0,ly=0;
+      for(var i=0;i<arc.length;i++){lx+=arc[i][0];ly+=arc[i][1];coords.push([sc?lx*sc[0]+tr[0]:lx,sc?ly*sc[1]+tr[1]:ly]);}
+      if(arcs[a]<0) coords.reverse(); result=result.concat(coords);
+    }
+    return result;
+  }
+  var features=[];
+  for(var gi=0;gi<obj.geometries.length;gi++){
+    var geom=obj.geometries[gi],feat={type:'Feature',properties:geom.properties||{},geometry:null};
+    if(geom.type==='Polygon'){var r=[];for(var ri=0;ri<geom.arcs.length;ri++)r.push(decodeArcs(geom.arcs[ri]));feat.geometry={type:'Polygon',coordinates:r};}
+    else if(geom.type==='MultiPolygon'){var p2=[];for(var pi2=0;pi2<geom.arcs.length;pi2++){var r2=[];for(var ri2=0;ri2<geom.arcs[pi2].length;ri2++)r2.push(decodeArcs(geom.arcs[pi2][ri2]));p2.push(r2);}feat.geometry={type:'MultiPolygon',coordinates:p2};}
+    if(feat.geometry) features.push(feat);
+  }
+  return {type:'FeatureCollection',features:features};
+}
+
+fetch('https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson')
+  .then(function(r){return r.json();})
+  .then(function(data){
+    if(data&&data.features&&data.features.length>0) geoData=data;
+    else throw new Error('empty');
+  })
+  .catch(function(){
+    return fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json')
+      .then(function(r){return r.json();})
+      .then(function(d){ geoData=convertTopoJSON(d); })
+      .catch(function(){});
+  });
+</script>
+
+<!-- TENSION WARNING -->
+
+<div id="tension-warning">&#9888; GLOBAL TENSION CRITICAL &#9888;</div>
+
+<!-- EVENT TICKER -->
+
+<div id="event-ticker" id="event-ticker"></div>
+
+<!-- WORLD WAR SCREEN -->
+
+<div id="worldwar">
+  <div id="worldwar-inner">
+    <div id="ww-title">WORLD WAR</div>
+    <div id="ww-sub">GLOBAL CONFLICT INITIATED</div>
+    <div id="ww-result" id="ww-result"></div>
+    <div id="ww-rows"></div>
+    <button class="btn-main" id="btn-ww-continue" style="width:100%">CONTINUE TO FINAL SCORE</button>
+  </div>
+</div>
+
+<!-- RESEARCH MODE BAR -->
+
+<div id="research-bar">
+  <div id="research-title">&#9632; RESEARCH MODE &#9632;</div>
+  <button id="btn-exit-research">EXIT</button>
+</div>
+<div id="research-hint">TAP ANY COUNTRY TO VIEW ITS DOSSIER</div>
+
+<!-- FULL DOSSIER CARD -->
+
+<div id="dossier">
+  <div id="dossier-inner">
+    <div id="dossier-header">
+      <div id="dossier-flag"></div>
+      <div id="dossier-name-wrap">
+        <div id="dossier-name"></div>
+        <div id="dossier-gov"></div>
+      </div>
+      <button id="dossier-close">X</button>
+    </div>
+    <div id="dossier-body">
+      <div id="dossier-rank-badge"></div>
+      <div id="dossier-bloc-badge" class="dossier-bloc-badge"></div>
+      <div id="dossier-stats"></div>
+      <div id="dossier-reason"></div>
+    </div>
+  </div>
+</div>
+
+<!-- COG SEARCH -->
+
+<button id="cog-toggle">⚙ FIND</button>
+
+<div id="cog-panel">
+  <input id="cog-search-input" type="text" placeholder="TYPE COUNTRY NAME..." autocomplete="off" autocorrect="off" spellcheck="false">
+  <div id="cog-suggestions"></div>
+</div>
+
+</body>
+</html>
