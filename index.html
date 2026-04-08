@@ -549,6 +549,43 @@ cursor:pointer; border-radius:2px; display:none;
 }
 #cog-toggle:hover { color:#ccff66; border-color:#7fff00; }
 
+/* ── WILD CARD RAID OVERLAY ── */
+#wildraid-overlay {
+position:fixed; top:0; left:0; width:100%; height:100%;
+background:rgba(0,0,0,0.82); z-index:160;
+display:none; align-items:center; justify-content:center;
+}
+#wildraid-box {
+background:rgba(3,10,3,0.98); border:1px solid #7fff00;
+border-radius:4px; padding:28px 32px; max-width:360px; width:90%;
+text-align:center; box-shadow:0 0 40px rgba(100,255,0,0.15);
+}
+#wildraid-title {
+font-size:15px; letter-spacing:6px; color:#ccff66;
+text-shadow:0 0 12px #3fff00; margin-bottom:6px;
+}
+#wildraid-sub {
+font-size:10px; letter-spacing:3px; color:#3a8f1a; margin-bottom:22px;
+}
+.wildraid-btn {
+display:block; width:100%; margin-bottom:12px;
+background:rgba(20,55,10,0.6); border:1px solid #3a8f1a;
+color:#7fff00; font-family:'Courier New',monospace;
+font-size:11px; letter-spacing:3px; padding:12px 16px;
+cursor:pointer; border-radius:2px; transition:all 0.2s;
+}
+.wildraid-btn:hover { background:rgba(50,120,20,0.7); border-color:#7fff00; }
+.wildraid-btn.danger { border-color:#aa4422; color:#ff9966; }
+.wildraid-btn.danger:hover { background:rgba(120,40,10,0.7); border-color:#ff6633; }
+#wildraid-result {
+font-size:13px; letter-spacing:3px; margin:14px 0 6px;
+}
+#wildraid-result.win { color:#7fff00; }
+#wildraid-result.lose { color:#ff4444; }
+#wildraid-detail {
+font-size:10px; letter-spacing:1px; color:#4a9f2a; margin-bottom:18px;
+}
+
 </style>
 </head>
 <body>
@@ -806,6 +843,16 @@ cursor:pointer; border-radius:2px; display:none;
   </div>
 </div>
 
+<!-- WILD CARD RAID OVERLAY -->
+
+<div id="wildraid-overlay">
+  <div id="wildraid-box">
+    <div id="wildraid-title">&#9824; WILD CARD</div>
+    <div id="wildraid-sub">CHOOSE YOUR ADVANTAGE</div>
+    <div id="wildraid-content"></div>
+  </div>
+</div>
+
 <!-- TENSION WARNING -->
 
 <div id="tension-warning">&#9888; GLOBAL TENSION CRITICAL &#9888;</div>
@@ -1040,11 +1087,20 @@ var ACTIONS = {
   ]
 };
 
+var MEDRESEARCH_ACTION = {
+  id:'medresearch', name:'MEDICAL RESEARCH', icon:'&#x1F9EC;', cost:40, baseOdds:0.70, cat:'eco',
+  desc:'Deploy vaccine teams to an outbreak country. Cure the disease, gain an ally, reduce world tension.'
+};
+
 function getActionsForCategory(cat, playerInfo) {
   var pool = cat === 'wild'
     ? ACTIONS.dip.concat(ACTIONS.eco).concat(ACTIONS.mil)
     : ACTIONS[cat] || ACTIONS.dip;
-  // Pick 3 random
+  // Inject Medical Research into eco/wild pool only when active outbreaks exist
+  if(cat==='eco'||cat==='wild'){
+    var hasOutbreak = GS.diseaseOutbreaks && Object.keys(GS.diseaseOutbreaks).length>0;
+    if(hasOutbreak) pool = pool.concat([MEDRESEARCH_ACTION]);
+  }
   var shuffled = pool.slice().sort(function(){return Math.random()-0.5;});
   return shuffled.slice(0,3);
 }
@@ -1720,6 +1776,59 @@ function updateHUD(){
 // ===================================================
 var _pendingCard=null, _pendingAction=null;
 
+function showWildRaidChoice(onActionPick){
+  var overlay=document.getElementById('wildraid-overlay');
+  var content=document.getElementById('wildraid-content');
+  content.innerHTML=
+    '<button class="wildraid-btn danger" id="wr-raid-btn">&#9760; TREASURY RAID<br><small style="font-size:9px;letter-spacing:1px;color:#cc7744">Steal 20% from a rival (50/50 coin flip)</small></button>'+
+    '<button class="wildraid-btn" id="wr-action-btn">&#9654; CHOOSE ANY ACTION<br><small style="font-size:9px;letter-spacing:1px;color:#4a9f2a">Pick from the full action pool</small></button>';
+  overlay.style.display='flex';
+  document.getElementById('wr-action-btn').onclick=function(){
+    overlay.style.display='none';
+    onActionPick();
+  };
+  document.getElementById('wr-raid-btn').onclick=function(){
+    // Show AI target selection
+    content.innerHTML='<div style="font-size:10px;letter-spacing:3px;color:#3a8f1a;margin-bottom:16px;">SELECT TARGET RIVAL</div>'+
+      GS.ai.map(function(ai,i){
+        return '<button class="wildraid-btn danger" id="wr-ai-'+i+'">'+ai.name+'<br><small style="font-size:9px;letter-spacing:1px;color:#cc7744">$'+ai.treasury+'B in treasury</small></button>';
+      }).join('');
+    GS.ai.forEach(function(ai,i){
+      document.getElementById('wr-ai-'+i).onclick=function(){
+        executeTreasuryRaid(i, overlay, content);
+      };
+    });
+  };
+}
+
+function executeTreasuryRaid(aiIdx, overlay, content){
+  var ai=GS.ai[aiIdx];
+  var win=Math.random()<0.5;
+  var amount=Math.floor(ai.treasury*0.2);
+  var resultCls, resultText, detailText;
+  if(win){
+    resultCls='win';
+    resultText='&#9646; RAID SUCCESSFUL';
+    detailText='Seized $'+amount+'B from '+ai.name;
+    GS.playerTreasury+=amount;
+    ai.treasury=Math.max(0,ai.treasury-amount);
+  } else {
+    resultCls='lose';
+    resultText='&#9646; RAID FAILED';
+    detailText='Security foiled your agents. No funds seized.';
+  }
+  updateHUD();
+  content.innerHTML=
+    '<div id="wildraid-result" class="'+resultCls+'">'+resultText+'</div>'+
+    '<div id="wildraid-detail">'+detailText+'</div>'+
+    '<button class="wildraid-btn" id="wr-continue-btn">CONTINUE</button>';
+  document.getElementById('wr-continue-btn').onclick=function(){
+    overlay.style.display='none';
+    document.getElementById('hud-phase').textContent='AI TURNS';
+    runAITurns(0);
+  };
+}
+
 function beginPlayerTurn(){
   autoSpin=false;
   updateHUD();
@@ -1733,7 +1842,11 @@ function beginPlayerTurn(){
     GS.currentCategory=cat;
     setTimeout(function(){
       hideDice();
-      showActionCards(cat);
+      if(cat==='wild'){
+        showWildRaidChoice(function(){ showActionCards('wild'); });
+      } else {
+        showActionCards(cat);
+      }
     },1200);
   });
 }
@@ -1810,6 +1923,9 @@ function hideCards(){ document.getElementById('cards-overlay').style.display='no
 
 function enterTargetingMode(){
   GS.targetingMode=true;
+  var isMed=_pendingAction&&_pendingAction.id==='medresearch';
+  document.getElementById('target-prompt').textContent=
+    isMed ? '&#x1F9EC; TAP AN OUTBREAK COUNTRY TO TREAT' : '&#9654; TAP A TARGET COUNTRY ON THE GLOBE';
   document.getElementById('target-prompt').style.display='block';
 }
 function exitTargetingMode(){
@@ -1819,7 +1935,18 @@ function exitTargetingMode(){
 
 function handleTargetPick(targetName){
   if(!_pendingAction) return;
-  if(targetName===GS.playerCountry){ return; } // can't target self (for most actions)
+  if(targetName===GS.playerCountry){ return; }
+  // Medical research requires an active outbreak in the target country
+  if(_pendingAction.id==='medresearch'){
+    if(!GS.diseaseOutbreaks||!GS.diseaseOutbreaks[targetName]){
+      var tp=document.getElementById('target-prompt');
+      tp.textContent='&#x26A0; NO ACTIVE OUTBREAK HERE — TAP AN INFECTED COUNTRY';
+      setTimeout(function(){
+        tp.textContent='&#x1F9EC; TAP AN OUTBREAK COUNTRY TO TREAT';
+      },2000);
+      return;
+    }
+  }
   exitTargetingMode();
   hideCards();
   selectedCountry=targetName;
@@ -1845,7 +1972,7 @@ function executePlayerAction(action, targetName, targetInfo, roll, success, part
 
   var outcome, detail, delta=0;
   if(success){
-    outcome='SUCCESS'; 
+    outcome='SUCCESS';
     if(action.id==='trade')  { delta=15; GS.playerTreasury+=delta; }
     if(action.id==='invest') { delta=10; GS.playerTreasury+=delta; }
     if(action.id==='arms')   { delta=25; GS.playerTreasury+=delta; GS.tension=Math.min(100,GS.tension+8); }
@@ -1858,11 +1985,30 @@ function executePlayerAction(action, targetName, targetInfo, roll, success, part
     if(action.id==='sanctions') { GS.tension=Math.min(100,GS.tension+5); }
     if(action.id==='covert'||action.id==='spy_out') { GS.playerOps++; GS.tension=Math.min(100,GS.tension+5); }
     if(action.id==='deploy') { GS.tension=Math.min(100,GS.tension+8); }
+    if(action.id==='medresearch'){
+      // Base success: +50B, gain ally, -2 tension, containment point
+      delta=50; GS.playerTreasury+=delta;
+      if(GS.allianceMap[targetName]!=='player'){
+        GS.allianceMap[targetName]='player'; GS.playerAllies.push(targetName);
+      }
+      GS.tension=Math.max(0,GS.tension-2);
+      GS.playerContainments++;
+      if(GS.diseaseOutbreaks) delete GS.diseaseOutbreaks[targetName];
+      // Bonus success: rolled 1 or 2 (outstanding result) → extra +100B, -1 more tension
+      if(roll<=2){
+        delta+=100; GS.playerTreasury+=100;
+        GS.tension=Math.max(0,GS.tension-1);
+        outcome='BREAKTHROUGH!';
+      }
+    }
     detail='Roll: '+roll+' | Needed: '+Math.ceil(odds*6)+' or less | '+(delta>0?'+$'+delta+'B':'');
   } else if(partial){
     outcome='PARTIAL';
-    detail='Roll: '+roll+' | Borderline result. Limited effect.';
-    if(action.cat==='eco') { delta=5; GS.playerTreasury+=delta; }
+    // Refund half the action cost for all categories
+    var refund=Math.floor(action.cost/2);
+    GS.playerTreasury+=refund;
+    detail='Roll: '+roll+' | Borderline result. $'+refund+'B refunded.';
+    if(action.cat==='eco') { delta=5; GS.playerTreasury+=delta; detail+=' +$'+delta+'B partial gain.'; }
   } else {
     outcome='FAILED';
     detail='Roll: '+roll+' | Needed: '+Math.ceil(odds*6)+' or less | No effect.';
